@@ -276,6 +276,60 @@ export const Assumptions: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Section 8: Seat-Level Dynamic Pricing & Cabin Layout Rules */}
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: '14px' }}>
+          <ShieldCheck size={18} style={{ color: '#38bdf8' }} />
+          <span>8. Seat-Level Dynamic Pricing, Cabin Layouts &amp; Multi-Factor Mechanics</span>
+        </div>
+
+        <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+          <p style={{ marginBottom: '12px' }}>
+            FleetYield AI extends pricing intelligence beyond whole-bus fares to individual seat and berth level optimization:
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', margin: '12px 0' }}>
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #fbbf24' }}>
+              <strong style={{ color: '#fbbf24' }}>Sleeper Privacy &amp; Category Isolation</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Single private solo berths and double sharing sleeper berths are classified as distinct fare categories.
+                Private sleeper premiums (+5%) are awarded only when empirical data verifies solo berths lead booking conversion.
+                Never cross-matched against sharing berths.
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #38bdf8' }}>
+              <strong style={{ color: '#38bdf8' }}>Journey Timing &amp; Speed Valuation</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Fast express schedules (&le;2 stops, &lt;7.5h) receive a timing premium (+3%) only when overall passenger booking demand
+                is healthy (&ge;40% occupancy). If demand is lagging, the premium is strictly withheld to prevent empty seats. Slower schedules receive competitive positioning (-2%).
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #34d399' }}>
+              <strong style={{ color: '#34d399' }}>Rating &amp; Reliability Guardrails</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Ratings &ge;4.4/5.0 with &ge;90% on-time performance support a secondary quality premium (+2%) only if supported by &ge;50 reviews.
+                Low review samples (&lt;50) or stale ratings automatically withhold quality adjustments to prevent price distortion.
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #f43f5e' }}>
+              <strong style={{ color: '#f87171' }}>Operating Expenses &amp; Change Limits</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Every proposed fare plan is verified against complete operating expenses (fuel, wages, tolls, commissions, permits).
+                If projected trip revenue fails to cover expenses, a break-even risk alert is triggered.
+                Max cycle change is capped at &plusmn;15% and clamped to seat bounds.
+              </div>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.8rem', fontStyle: 'italic', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+            Confirmed Passenger Protection: Booked seats are permanently locked. No retroactive price change can ever be applied to an issued passenger ticket.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
