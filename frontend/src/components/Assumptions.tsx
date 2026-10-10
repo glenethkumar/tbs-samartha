@@ -146,6 +146,57 @@ export const Assumptions: React.FC = () => {
         </div>
       </div>
 
+      {/* Section 4b: Explainable Evidence-Quality Framework */}
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: '14px' }}>
+          <ShieldCheck size={18} style={{ color: '#10b981' }} />
+          <span>5. Explainable Evidence-Quality Framework</span>
+        </div>
+
+        <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+          <p style={{ marginBottom: '12px' }}>
+            FleetYield AI evaluates every trip recommendation against verifiable data inputs and categorizes evidence into three deterministic, auditable quality statuses:
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', margin: '14px 0' }}>
+            <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #10b981' }}>
+              <strong style={{ color: '#34d399' }}>Strong Data Quality</strong>
+              <div style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+                All required schema fields are verified and fresh (updated within 24h), and multi-point historical booking pace evidence is satisfied (≥2 snapshots over &gt;0h).
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+                Outcome: Computes full rule-based fare recommendation with booking velocity context.
+              </div>
+            </div>
+
+            <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #f59e0b' }}>
+              <strong style={{ color: '#fbbf24' }}>Limited Data Quality</strong>
+              <div style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+                All required schema fields and current occupancy are verified and fresh (within 24h), but optional historical snapshot history is missing or insufficient (&lt;2 snapshots).
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+                Outcome: Computes safe recommendation based strictly on verified occupancy boundaries.
+              </div>
+            </div>
+
+            <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #ef4444' }}>
+              <strong style={{ color: '#fb7185' }}>Insufficient Data Quality</strong>
+              <div style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+                Required inputs are missing, invalid (e.g. booked &gt; total seats, fare &le; 0), or stale (&gt;24h since last update).
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginTop: '6px' }}>
+                Outcome: Recommendation is strictly blocked by safety policy until data is updated.
+              </div>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.8rem', fontStyle: 'italic', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+            Audit Principle: Evidence quality is determined strictly by deterministic criteria and verifiable inputs.
+            The system explicitly rejects arbitrary AI confidence percentages, black-box ML scoring, or subjective statistical probabilities.
+          </p>
+        </div>
+      </div>
+
       {/* Section 5: Baseline Comparison Simulation Mechanics */}
       <div className="card">
         <div className="card-title" style={{ marginBottom: '14px' }}>

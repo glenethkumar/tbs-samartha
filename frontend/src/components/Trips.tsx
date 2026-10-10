@@ -9,7 +9,8 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   XCircle, 
-  RotateCw 
+  RotateCw,
+  Info 
 } from 'lucide-react';
 import type { Trip } from '../types';
 import { api } from '../api';
@@ -270,15 +271,19 @@ export const Trips: React.FC<TripsProps> = ({ onSelectTrip }) => {
                       <td>
                         {trip.is_stale ? (
                           <span className="badge badge-stale" title={trip.validation_issues.join('; ')}>
-                            <AlertTriangle size={12} /> Stale Data
+                            <AlertTriangle size={12} /> Stale (Insufficient)
                           </span>
                         ) : !trip.is_valid ? (
                           <span className="badge badge-invalid" title={trip.validation_issues.join('; ')}>
-                            <XCircle size={12} /> Invalid Data
+                            <XCircle size={12} /> Invalid (Insufficient)
+                          </span>
+                        ) : (trip.snapshot_count && trip.snapshot_count >= 2) ? (
+                          <span className="badge badge-valid" title="Strong data quality: Verified fresh & multi-point snapshots">
+                            <CheckCircle2 size={12} /> Strong Data
                           </span>
                         ) : (
-                          <span className="badge badge-valid">
-                            <CheckCircle2 size={12} /> Valid
+                          <span className="badge badge-stale" title="Limited data quality: Core valid; snapshot history missing">
+                            <Info size={12} /> Limited Data
                           </span>
                         )}
                       </td>

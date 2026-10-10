@@ -344,3 +344,193 @@ def test_simulation_consistency_and_non_negative():
         assert row["baseline_occupancy_pct"] == expected_occ_base
         assert row["fleetyield_occupancy_pct"] == expected_occ_fleet
 
+
+# 19. Evidence Quality: Strong data status condition
+def test_evidence_quality_strong_status():
+    trip = {
+        "trip_id": "TRIP-TEST-STRONG",
+        "total_seats": 40,
+        "booked_seats": 30,
+        "base_fare": 800.0,
+        "current_fare": 800.0,
+        "min_fare": 600.0,
+        "max_fare": 1100.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-10T15:00:00Z"
+    }
+    snapshots = [
+        {"snapshot_id": "S1", "trip_id": "TRIP-TEST-STRONG", "captured_at": "2026-10-10T08:00:00Z", "booked_seats": 20},
+        {"snapshot_id": "S2", "trip_id": "TRIP-TEST-STRONG", "captured_at": "2026-10-10T14:00:00Z", "booked_seats": 30}
+    ]
+    pace = DemandClassifier.calculate_booking_pace(snapshots)
+    assert pace["available"] is True
+    assert pace["window_hours"] == 6.0
+    assert pace["pace_per_hour"] == 1.67
+
+    ev = ValidationService.evaluate_evidence_quality(
+        trip=trip,
+        is_valid=True,
+        is_stale=False,
+        validation_issues=[],
+        booking_pace=pace
+    )
+    assert ev["status"] == settings.EVIDENCE_STATUS_STRONG
+    assert ev["status_code"] == "STRONG"
+    assert ev["can_recommend"] is True
+    assert "Strong data" in ev["explanation"]
+    assert ev["optional_evidence"]["booking_pace_available"] is True
+
+
+# 20. Evidence Quality: Limited data status condition
+def test_evidence_quality_limited_status():
+    trip = {
+        "trip_id": "TRIP-TEST-LIMITED",
+        "total_seats": 40,
+        "booked_seats": 20,
+        "base_fare": 800.0,
+        "current_fare": 800.0,
+        "min_fare": 600.0,
+        "max_fare": 1100.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-10T15:00:00Z"
+    }
+    # Fewer than 2 snapshots (pace unavailable)
+    pace = DemandClassifier.calculate_booking_pace([
+        {"snapshot_id": "S1", "trip_id": "TRIP-TEST-LIMITED", "captured_at": "2026-10-10T08:00:00Z", "booked_seats": 20}
+    ])
+    assert pace["available"] is False
+
+    ev = ValidationService.evaluate_evidence_quality(
+        trip=trip,
+        is_valid=True,
+        is_stale=False,
+        validation_issues=[],
+        booking_pace=pace
+    )
+    assert ev["status"] == settings.EVIDENCE_STATUS_LIMITED
+    assert ev["status_code"] == "LIMITED"
+    assert ev["can_recommend"] is True
+    assert "Limited data" in ev["explanation"]
+    assert "optional historical booking pace snapshots are missing" in ev["explanation"]
+
+
+# 21. Evidence Quality: Insufficient data status on stale data
+def test_evidence_quality_insufficient_status_stale():
+    trip = {
+        "trip_id": "TRIP-TEST-STALE",
+        "total_seats": 40,
+        "booked_seats": 20,
+        "base_fare": 800.0,
+        "current_fare": 800.0,
+        "min_fare": 600.0,
+        "max_fare": 1100.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-01T00:00:00Z"  # > 24 hours ago
+    }
+    ev = ValidationService.evaluate_evidence_quality(
+        trip=trip,
+        is_valid=True,
+        is_stale=True,
+        validation_issues=["Data is stale: last updated 230.0 hours ago"],
+        booking_pace={"available": True}
+    )
+    assert ev["status"] == settings.EVIDENCE_STATUS_INSUFFICIENT
+    assert ev["status_code"] == "INSUFFICIENT"
+    assert ev["can_recommend"] is False
+    assert "Insufficient data" in ev["explanation"]
+    assert "withheld by safety policy" in ev["explanation"]
+
+
+# 22. Evidence Quality: Insufficient data status on invalid inputs
+def test_evidence_quality_insufficient_status_invalid():
+    trip = {
+        "trip_id": "TRIP-TEST-INVALID",
+        "total_seats": 40,
+        "booked_seats": 50,  # Overbooked
+        "base_fare": 800.0,
+        "current_fare": 800.0,
+        "min_fare": 600.0,
+        "max_fare": 1100.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-10T15:00:00Z"
+    }
+    ev = ValidationService.evaluate_evidence_quality(
+        trip=trip,
+        is_valid=False,
+        is_stale=False,
+        validation_issues=["Booked seats (50) exceeds total bus capacity (40)"],
+        booking_pace=None
+    )
+    assert ev["status"] == settings.EVIDENCE_STATUS_INSUFFICIENT
+    assert ev["can_recommend"] is False
+    assert "exceeds total bus capacity" in ev["explanation"]
+
+
+# 23. RecommendationService end-to-end Explainable Confidence with Strong data
+def test_recommendation_service_strong_data_evidence():
+    from app.services.recommendation_service import RecommendationService
+    rec = RecommendationService.generate_recommendation("TRIP-MUM-PUN-404")
+
+    assert rec["validation_status"] == "VALID"
+    assert rec["evidence_quality_status"] == settings.EVIDENCE_STATUS_STRONG
+    details = rec["evidence_quality_details"]
+    assert details["status"] == "Strong data"
+    assert details["can_recommend"] is True
+    assert details["occupancy"]["band"] == "High"
+    assert "> 70.0%" in details["occupancy"]["threshold_used"]
+    assert details["booking_pace"]["available"] is True
+    assert details["booking_pace"]["window_hours"] is not None
+    assert "h window" in details["booking_pace"]["observation_window"]
+    assert rec["recommended_fare"] == 520.0  # ₹450 + 15% = ₹517.5 rounded to ₹520
+    assert "High Demand Policy: +15.0%" in rec["rule_applied"]
+
+
+# 24. RecommendationService end-to-end Explainable Confidence with Limited data
+def test_recommendation_service_limited_data_evidence():
+    from app.services.recommendation_service import RecommendationService
+    rec = RecommendationService.generate_recommendation("TRIP-BLR-HYD-101")
+
+    assert rec["validation_status"] == "VALID"
+    assert rec["evidence_quality_status"] == settings.EVIDENCE_STATUS_LIMITED
+    details = rec["evidence_quality_details"]
+    assert details["status"] == "Limited data"
+    assert details["occupancy"]["band"] == "Low"
+    assert "< 30.0%" in details["occupancy"]["threshold_used"]
+    assert details["booking_pace"]["available"] is False
+    assert rec["recommended_fare"] == 810.0  # ₹900 - 10% = ₹810
+    assert "Low Demand Policy: -10.0%" in rec["rule_applied"]
+
+
+# 25. RecommendationService blocks Insufficient data test fixtures
+def test_recommendation_service_insufficient_data_blocked():
+    from app.services.recommendation_service import RecommendationService
+    # Stale fixture
+    rec_stale = RecommendationService.generate_recommendation("TRIP-STALE-901")
+    assert rec_stale["validation_status"] == "BLOCKED"
+    assert rec_stale["evidence_quality_status"] == settings.EVIDENCE_STATUS_INSUFFICIENT
+    assert "Recommendation withheld by safety policy" in rec_stale["explanation"]
+
+    # Invalid fixture
+    rec_invalid = RecommendationService.generate_recommendation("TRIP-INVALID-902")
+    assert rec_invalid["validation_status"] == "BLOCKED"
+    assert rec_invalid["evidence_quality_status"] == settings.EVIDENCE_STATUS_INSUFFICIENT
+    assert "exceeds total bus capacity" in rec_invalid["explanation"]
+
+
+# 26. Absence of arbitrary AI percentage or statistical probability claims
+def test_no_arbitrary_ai_confidence_percentages():
+    from app.services.recommendation_service import RecommendationService
+    rec = RecommendationService.generate_recommendation("TRIP-MUM-PUN-404")
+
+    # Status must be one of the three canonical deterministic labels
+    assert rec["evidence_quality_status"] in (
+        settings.EVIDENCE_STATUS_STRONG,
+        settings.EVIDENCE_STATUS_LIMITED,
+        settings.EVIDENCE_STATUS_INSUFFICIENT
+    )
+    # Explanation must not claim ML probabilistic calibration or arbitrary AI percentages
+    forbidden_terms = ["99%", "95% confidence", "statistical probability", "trained model", "machine learning model"]
+    for term in forbidden_terms:
+        assert term not in rec["explanation"].lower()
+        assert term not in rec["evidence_quality_explanation"].lower()
+

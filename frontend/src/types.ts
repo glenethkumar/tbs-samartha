@@ -17,6 +17,60 @@ export interface OperatorDecision {
   actor_label: string;
 }
 
+export type EvidenceQualityStatus = "Strong data" | "Limited data" | "Insufficient data";
+
+export interface EvidenceQualityDetails {
+  status: EvidenceQualityStatus;
+  status_code: "STRONG" | "LIMITED" | "INSUFFICIENT" | string;
+  can_recommend: boolean;
+  explanation: string;
+  occupancy: {
+    value_pct: number;
+    threshold_used: string;
+    band: string;
+  };
+  booking_pace: {
+    available: boolean;
+    pace_per_hour?: number | null;
+    observation_window?: string | null;
+    window_hours?: number | null;
+    window_start?: string | null;
+    window_end?: string | null;
+    snapshots_evaluated?: number;
+    seats_delta?: number | null;
+    description?: string;
+  };
+  departure: {
+    departure_time: string;
+    hours_remaining?: number | null;
+    label: string;
+  };
+  data_freshness: {
+    data_updated_at: string;
+    age_hours?: number | null;
+    threshold_hours: number;
+    is_stale: boolean;
+  };
+  input_diagnostics: {
+    is_valid: boolean;
+    is_stale: boolean;
+    issues: string[];
+  };
+  fare_constraints: {
+    min_fare: number;
+    max_fare: number;
+    current_fare: number;
+    base_fare: number;
+    raw_calculated_fare?: number;
+    rounding_increment?: number;
+    recommended_fare: number;
+    is_clamped: boolean;
+    clamped_reason?: string | null;
+    suggested_band?: { low: number; high: number };
+  };
+  applicable_rules: string[];
+}
+
 export interface Recommendation {
   recommendation_id: string;
   trip_id: string;
@@ -34,6 +88,9 @@ export interface Recommendation {
   contributing_factors: Record<string, any>;
   booking_pace_info: string;
   validation_status: "VALID" | "WARNING" | "BLOCKED" | string;
+  evidence_quality_status?: EvidenceQualityStatus | string;
+  evidence_quality_explanation?: string;
+  evidence_quality_details?: EvidenceQualityDetails;
   policy_version: string;
   source_label: string;
   is_clamped: boolean;

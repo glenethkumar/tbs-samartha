@@ -127,3 +127,80 @@ class ValidationService:
         can_recommend = is_valid and not is_stale
 
         return is_valid, is_stale, can_recommend, issues
+
+    @staticmethod
+    def evaluate_evidence_quality(
+        trip: Dict[str, Any],
+        is_valid: bool,
+        is_stale: bool,
+        validation_issues: List[str],
+        booking_pace: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Determines explainable evidence-quality status based strictly on deterministic rules:
+        - Strong data: all required fields are valid and fresh, and configured minimum evidence requirements (>=2 snapshots) are satisfied.
+        - Limited data: recommendation can be calculated from valid and fresh data, but optional historical evidence (booking pace snapshots) is missing.
+        - Insufficient data: required inputs are missing, invalid, stale, or inadequate for the applicable rule. Recommendation is blocked.
+        """
+        data_updated_at = trip.get("data_updated_at")
+        age_hours = None
+        if data_updated_at:
+            try:
+                updated_dt = parse_iso_datetime(data_updated_at)
+                now = datetime.now(timezone.utc)
+                age_hours = round((now - updated_dt).total_seconds() / 3600.0, 1)
+            except Exception:
+                pass
+
+        pace_avail = bool(booking_pace and booking_pace.get("available"))
+
+        if not is_valid or is_stale:
+            status = settings.EVIDENCE_STATUS_INSUFFICIENT
+            status_code = "INSUFFICIENT"
+            can_rec = False
+            issues_text = "; ".join(validation_issues) if validation_issues else "Unspecified schema or freshness failure"
+            explanation = (
+                f"Insufficient data: Required trip inputs are missing, invalid, or stale ({issues_text}). "
+                f"Pricing recommendations cannot be reliably calculated and are withheld by safety policy."
+            )
+        elif not pace_avail:
+            status = settings.EVIDENCE_STATUS_LIMITED
+            status_code = "LIMITED"
+            can_rec = True
+            pace_reason = booking_pace.get("description", "insufficient snapshot history") if booking_pace else "no snapshots recorded"
+            explanation = (
+                f"Limited data: Core trip inputs, inventory capacity, and occupancy are fully valid and fresh "
+                f"(updated {age_hours}h ago, within {settings.STALE_DATA_THRESHOLD_HOURS:.0f}h limit), but optional historical "
+                f"booking pace snapshots are missing ({pace_reason}). Recommendation is computed using core occupancy policy."
+            )
+        else:
+            status = settings.EVIDENCE_STATUS_STRONG
+            status_code = "STRONG"
+            can_rec = True
+            explanation = (
+                f"Strong data: All required trip attributes are verified and fresh "
+                f"(updated {age_hours}h ago, within {settings.STALE_DATA_THRESHOLD_HOURS:.0f}h limit), "
+                f"and multi-point historical booking pace evidence is satisfied ({booking_pace.get('description')})."
+            )
+
+        return {
+            "status": status,
+            "status_code": status_code,
+            "can_recommend": can_rec,
+            "explanation": explanation,
+            "freshness": {
+                "data_updated_at": data_updated_at,
+                "age_hours": age_hours,
+                "threshold_hours": settings.STALE_DATA_THRESHOLD_HOURS,
+                "is_stale": is_stale
+            },
+            "validation_diagnostics": {
+                "is_valid": is_valid,
+                "is_stale": is_stale,
+                "issues": validation_issues
+            },
+            "optional_evidence": {
+                "booking_pace_available": pace_avail,
+                "booking_pace_details": booking_pace
+            }
+        }

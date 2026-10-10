@@ -83,6 +83,8 @@ class RecommendationModel(BaseModel):
     is_clamped: bool = False
     clamped_reason: Optional[str] = None
     notice: str = "Rule-based decision support; does not change passenger-facing live fares."
+    evidence_quality_status: Optional[str] = "Strong data"
+    evidence_quality_details: Optional[Dict[str, Any]] = None
 
 
 class DecisionCreate(BaseModel):

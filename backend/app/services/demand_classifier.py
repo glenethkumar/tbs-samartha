@@ -22,7 +22,12 @@ class DemandClassifier:
                 "available": False,
                 "pace_per_hour": None,
                 "description": f"Not available (minimum {settings.MIN_SNAPSHOTS_FOR_BOOKING_PACE} timestamped snapshots required)",
-                "snapshots_evaluated": len(snapshots) if snapshots else 0
+                "snapshots_evaluated": len(snapshots) if snapshots else 0,
+                "window_hours": None,
+                "window_start": None,
+                "window_end": None,
+                "observation_window_label": f"Not available ({len(snapshots) if snapshots else 0} snapshots recorded; minimum {settings.MIN_SNAPSHOTS_FOR_BOOKING_PACE} required)",
+                "seats_delta": None
             }
 
         # Sort snapshots by captured_at ascending
@@ -45,12 +50,20 @@ class DemandClassifier:
                 "available": False,
                 "pace_per_hour": None,
                 "description": "Not available (snapshot timestamps are identical)",
-                "snapshots_evaluated": len(sorted_snaps)
+                "snapshots_evaluated": len(sorted_snaps),
+                "window_hours": 0.0,
+                "window_start": first_snap["captured_at"],
+                "window_end": last_snap["captured_at"],
+                "observation_window_label": "Not available (zero-duration observation window)",
+                "seats_delta": delta_seats
             }
 
         pace_per_hour = delta_seats / delta_hours
         sign = "+" if pace_per_hour >= 0 else ""
-        desc = f"{sign}{pace_per_hour:.2f} seats/hr over {delta_hours:.1f}h ({delta_seats} seats change)"
+        window_start_str = first_snap["captured_at"]
+        window_end_str = last_snap["captured_at"]
+        window_label = f"{delta_hours:.1f}h window ({window_start_str} to {window_end_str})"
+        desc = f"{sign}{pace_per_hour:.2f} seats/hr observed over {window_label} ({delta_seats:+d} seats change)"
 
         return {
             "available": True,
@@ -58,6 +71,9 @@ class DemandClassifier:
             "description": desc,
             "snapshots_evaluated": len(sorted_snaps),
             "window_hours": round(delta_hours, 1),
+            "window_start": window_start_str,
+            "window_end": window_end_str,
+            "observation_window_label": window_label,
             "seats_delta": delta_seats
         }
 
@@ -97,18 +113,21 @@ class DemandClassifier:
 
         if occupancy_percent < low_limit:
             category = "Low"
+            threshold_applied = f"< {low_limit:.1f}% (Low Demand tier)"
             rule_detail = f"Occupancy ({occupancy_percent:.1f}%) is strictly below the {low_limit:.1f}% threshold."
         elif occupancy_percent > high_limit:
             category = "High"
+            threshold_applied = f"> {high_limit:.1f}% (High Demand tier)"
             rule_detail = f"Occupancy ({occupancy_percent:.1f}%) strictly exceeds the {high_limit:.1f}% threshold."
         else:
             category = "Medium"
+            threshold_applied = f"{low_limit:.1f}% - {high_limit:.1f}% (Medium Demand tier)"
             rule_detail = f"Occupancy ({occupancy_percent:.1f}%) lies in the normal {low_limit:.1f}% to {high_limit:.1f}% band."
 
         pace_note = (
             f" Booking pace signal: {pace_result['description']}."
             if pace_result["available"]
-            else " Booking pace is not available."
+            else f" Booking pace: {pace_result['description']}."
         )
 
         explanation = (
@@ -122,9 +141,11 @@ class DemandClassifier:
             "explanation": explanation,
             "contributing_factors": {
                 "occupancy_percent": round(occupancy_percent, 1),
+                "threshold_used": threshold_applied,
                 "thresholds": {"low": low_limit, "high": high_limit},
                 "booking_pace": pace_result,
                 "hours_to_departure": hours_to_dep,
-                "time_to_departure_label": time_to_dep_str
+                "time_to_departure_label": time_to_dep_str,
+                "departure_time": departure_time
             }
         }

@@ -38,6 +38,11 @@ class Settings:
     # Practical currency increment for rounding fares (e.g. nearest ₹10)
     FARE_ROUNDING_INCREMENT: int = 10
 
+    # Evidence Quality Status Definitions (Deterministic & Rule-Based)
+    EVIDENCE_STATUS_STRONG: str = "Strong data"
+    EVIDENCE_STATUS_LIMITED: str = "Limited data"
+    EVIDENCE_STATUS_INSUFFICIENT: str = "Insufficient data"
+
     # Baseline simulation default assumptions
     SIMULATION_PRICE_ELASTICITY: float = -0.5  # Illustrative price elasticity coefficient
     SIMULATION_BASELINE_POLICY_NAME: str = "Fixed-Fare Baseline"
@@ -51,6 +56,11 @@ class Settings:
             "data_source_label": cls.DATA_SOURCE_LABEL,
             "stale_data_threshold_hours": cls.STALE_DATA_THRESHOLD_HOURS,
             "demand_thresholds": {
+                "low": f"< {cls.LOW_OCCUPANCY_THRESHOLD}% occupancy",
+                "medium": f"{cls.LOW_OCCUPANCY_THRESHOLD}% - {cls.HIGH_OCCUPANCY_THRESHOLD}% occupancy",
+                "high": f"> {cls.HIGH_OCCUPANCY_THRESHOLD}% occupancy",
+                "low_bound_pct": cls.LOW_OCCUPANCY_THRESHOLD,
+                "high_bound_pct": cls.HIGH_OCCUPANCY_THRESHOLD,
                 "low_occupancy_max": cls.LOW_OCCUPANCY_THRESHOLD,
                 "high_occupancy_min": cls.HIGH_OCCUPANCY_THRESHOLD,
                 "description": (
@@ -70,6 +80,39 @@ class Settings:
             "booking_pace_rule": {
                 "min_snapshots_required": cls.MIN_SNAPSHOTS_FOR_BOOKING_PACE,
                 "fallback": "If fewer than 2 snapshots exist, booking pace is explicitly reported as 'Not available'.",
+            },
+            "evidence_quality_framework": {
+                "statuses": {
+                    "strong": {
+                        "label": cls.EVIDENCE_STATUS_STRONG,
+                        "condition": (
+                            "All required fields are valid and fresh (data_updated_at <= 24h), "
+                            "and minimum historical booking pace evidence is satisfied (>= 2 snapshots spanning > 0h)."
+                        ),
+                        "action": "Calculate full rule-based recommendation with velocity context.",
+                    },
+                    "limited": {
+                        "label": cls.EVIDENCE_STATUS_LIMITED,
+                        "condition": (
+                            "All required fields are valid and fresh (data_updated_at <= 24h), "
+                            "but optional historical booking snapshots are missing or fewer than 2."
+                        ),
+                        "action": "Calculate safe rule-based recommendation based strictly on verified occupancy.",
+                    },
+                    "insufficient": {
+                        "label": cls.EVIDENCE_STATUS_INSUFFICIENT,
+                        "condition": (
+                            "Required inputs are missing, invalid (e.g. booked > total seats, fare <= 0), "
+                            "or stale (> 24h since last update)."
+                        ),
+                        "action": "Block recommendation with explicit safety policy reason.",
+                    },
+                },
+                "audit_principle": (
+                    "Deterministic evidence quality verification based on verifiable inputs. "
+                    "Does NOT use arbitrary AI confidence percentages, black-box ML probability scores, "
+                    "or calibrated statistical estimates."
+                ),
             },
             "baseline_simulation_rules": {
                 "elasticity_coefficient": cls.SIMULATION_PRICE_ELASTICITY,

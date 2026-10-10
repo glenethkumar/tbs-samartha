@@ -13,14 +13,15 @@ from app.config import settings
 from app.services.trip_service import TripService
 from app.services.demand_classifier import DemandClassifier
 from app.services.pricing_policy import PricingPolicy
+from app.services.validation_service import ValidationService
 
 
 class RecommendationService:
     @staticmethod
     def generate_recommendation(trip_id: str) -> Dict[str, Any]:
         """
-        Generates an explainable fare recommendation for a given trip.
-        Withholds recommendation if data fails validation or is stale.
+        Generates an explainable fare recommendation with Evidence-Quality verification.
+        Withholds recommendation if data fails validation or is stale (Insufficient data).
         """
         trip = TripService.get_trip(trip_id)
         if not trip:
@@ -32,9 +33,116 @@ class RecommendationService:
         if not trip["is_valid"] or trip["is_stale"]:
             reason_str = "Data quality issues: " + "; ".join(trip["validation_issues"])
             
-            # Record blocked event in audit log
+            # Evaluate deterministic evidence quality status
+            evidence_eval = ValidationService.evaluate_evidence_quality(
+                trip=trip,
+                is_valid=trip["is_valid"],
+                is_stale=trip["is_stale"],
+                validation_issues=trip["validation_issues"],
+                booking_pace=None
+            )
+
+            evidence_details = {
+                "status": evidence_eval["status"],
+                "status_code": evidence_eval["status_code"],
+                "can_recommend": False,
+                "explanation": evidence_eval["explanation"],
+                "occupancy": {
+                    "value_pct": trip.get("occupancy_percent", 0.0),
+                    "threshold_used": "Not evaluated (blocked by safety policy)",
+                    "band": "Blocked"
+                },
+                "booking_pace": {
+                    "available": False,
+                    "pace_per_hour": None,
+                    "observation_window": "Not evaluated",
+                    "description": "Not evaluated (prerequisite data validation failed)"
+                },
+                "departure": {
+                    "departure_time": trip.get("departure_time"),
+                    "hours_remaining": None,
+                    "label": "Not evaluated"
+                },
+                "data_freshness": evidence_eval["freshness"],
+                "input_diagnostics": evidence_eval["validation_diagnostics"],
+                "fare_constraints": {
+                    "min_fare": float(trip.get("min_fare", 0.0)),
+                    "max_fare": float(trip.get("max_fare", 0.0)),
+                    "current_fare": float(trip.get("current_fare", 0.0)),
+                    "base_fare": float(trip.get("base_fare", 0.0)),
+                    "recommended_fare": float(trip.get("current_fare", 0.0)),
+                    "is_clamped": False,
+                    "clamped_reason": None
+                },
+                "applicable_rules": [
+                    "Safety Policy: Withhold recommendation on invalid or stale data"
+                ]
+            }
+
+            rec_id = f"REC-BLOCKED-{uuid.uuid4().hex[:6].upper()}"
+
+            blocked_payload = {
+                "recommendation_id": rec_id,
+                "trip_id": trip_id,
+                "generated_at": now_str,
+                "current_fare_at_generation": float(trip["current_fare"]),
+                "base_fare_at_generation": float(trip["base_fare"]),
+                "recommended_fare": float(trip["current_fare"]),
+                "fare_difference": 0.0,
+                "fare_difference_pct": 0.0,
+                "min_fare": float(trip.get("min_fare", 0.0)),
+                "max_fare": float(trip.get("max_fare", 0.0)),
+                "demand_category": "Blocked",
+                "explanation": (
+                    f"Recommendation withheld by safety policy. The trip record failed validation: "
+                    f"{'; '.join(trip['validation_issues'])}. Pricing changes cannot be recommended "
+                    f"until data is updated and verified."
+                ),
+                "rule_applied": "Safety Policy: Withhold recommendation on invalid or stale data",
+                "contributing_factors": {
+                    "is_valid": trip["is_valid"],
+                    "is_stale": trip["is_stale"],
+                    "validation_issues": trip["validation_issues"],
+                    "evidence_details": evidence_details
+                },
+                "booking_pace_info": "Not evaluated",
+                "validation_status": "BLOCKED",
+                "evidence_quality_status": evidence_eval["status"],
+                "evidence_quality_explanation": evidence_eval["explanation"],
+                "evidence_quality_details": evidence_details,
+                "policy_version": settings.POLICY_VERSION,
+                "source_label": trip.get("data_source_label", settings.DATA_SOURCE_LABEL),
+                "is_clamped": False,
+                "clamped_reason": None,
+                "notice": "Rule-based decision support; recommendation withheld due to data checks."
+            }
+
+            # Record blocked event in recommendations and audit log
             with get_connection() as conn:
                 cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO recommendations (
+                        recommendation_id, trip_id, generated_at, current_fare_at_generation,
+                        base_fare_at_generation, recommended_fare, fare_difference,
+                        fare_difference_pct, min_fare, max_fare, demand_category,
+                        explanation, rule_applied, contributing_factors, booking_pace_info,
+                        validation_status, policy_version, source_label, is_clamped,
+                        clamped_reason, notice, evidence_quality_status, evidence_quality_details
+                    ) VALUES (
+                        :recommendation_id, :trip_id, :generated_at, :current_fare_at_generation,
+                        :base_fare_at_generation, :recommended_fare, :fare_difference,
+                        :fare_difference_pct, :min_fare, :max_fare, :demand_category,
+                        :explanation, :rule_applied, :contributing_factors, :booking_pace_info,
+                        :validation_status, :policy_version, :source_label, :is_clamped,
+                        :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details
+                    );
+                """, {
+                    **blocked_payload,
+                    "contributing_factors": json.dumps(blocked_payload["contributing_factors"]),
+                    "evidence_quality_details": json.dumps(blocked_payload["evidence_quality_details"]),
+                    "is_clamped": 0
+                })
+
                 cursor.execute("""
                     INSERT INTO audit_events (
                         audit_id, trip_id, event_type, previous_fare, recommended_fare,
@@ -48,44 +156,18 @@ class RecommendationService:
                     trip_id,
                     trip["current_fare"],
                     reason_str,
-                    json.dumps({"issues": trip["validation_issues"], "is_stale": trip["is_stale"]}),
+                    json.dumps({
+                        "issues": trip["validation_issues"],
+                        "is_stale": trip["is_stale"],
+                        "evidence_status": evidence_eval["status"]
+                    }),
                     now_str,
                     settings.POLICY_VERSION,
                     trip.get("data_source_label", settings.DATA_SOURCE_LABEL)
                 ))
                 conn.commit()
 
-            return {
-                "recommendation_id": f"REC-BLOCKED-{uuid.uuid4().hex[:6].upper()}",
-                "trip_id": trip_id,
-                "generated_at": now_str,
-                "current_fare_at_generation": trip["current_fare"],
-                "base_fare_at_generation": trip["base_fare"],
-                "recommended_fare": trip["current_fare"],
-                "fare_difference": 0.0,
-                "fare_difference_pct": 0.0,
-                "min_fare": trip.get("min_fare", 0.0),
-                "max_fare": trip.get("max_fare", 0.0),
-                "demand_category": "Blocked",
-                "explanation": (
-                    f"Recommendation withheld by safety policy. The trip record failed validation: "
-                    f"{'; '.join(trip['validation_issues'])}. Pricing changes cannot be recommended "
-                    f"until data is updated and verified."
-                ),
-                "rule_applied": "Safety Policy: Withhold recommendation on invalid or stale data",
-                "contributing_factors": {
-                    "is_valid": trip["is_valid"],
-                    "is_stale": trip["is_stale"],
-                    "validation_issues": trip["validation_issues"]
-                },
-                "booking_pace_info": "Not evaluated",
-                "validation_status": "BLOCKED",
-                "policy_version": settings.POLICY_VERSION,
-                "source_label": trip.get("data_source_label", settings.DATA_SOURCE_LABEL),
-                "is_clamped": False,
-                "clamped_reason": None,
-                "notice": "Rule-based decision support; recommendation withheld due to data checks."
-            }
+            return blocked_payload
 
         # Step 1: Demand classification
         demand_info = DemandClassifier.classify(
@@ -110,6 +192,63 @@ class RecommendationService:
             trip_id=trip_id
         )
 
+        # Step 3: Evaluate Explainable Evidence Quality
+        evidence_eval = ValidationService.evaluate_evidence_quality(
+            trip=trip,
+            is_valid=trip["is_valid"],
+            is_stale=trip["is_stale"],
+            validation_issues=trip["validation_issues"],
+            booking_pace=pace_info
+        )
+
+        evidence_details = {
+            "status": evidence_eval["status"],
+            "status_code": evidence_eval["status_code"],
+            "can_recommend": True,
+            "explanation": evidence_eval["explanation"],
+            "occupancy": {
+                "value_pct": float(trip["occupancy_percent"]),
+                "threshold_used": demand_info["contributing_factors"]["threshold_used"],
+                "band": demand_info["demand_category"]
+            },
+            "booking_pace": {
+                "available": pace_info["available"],
+                "pace_per_hour": pace_info.get("pace_per_hour"),
+                "observation_window": pace_info.get("observation_window_label"),
+                "window_hours": pace_info.get("window_hours"),
+                "window_start": pace_info.get("window_start"),
+                "window_end": pace_info.get("window_end"),
+                "snapshots_evaluated": pace_info.get("snapshots_evaluated", 0),
+                "seats_delta": pace_info.get("seats_delta"),
+                "description": pace_info.get("description")
+            },
+            "departure": {
+                "departure_time": trip["departure_time"],
+                "hours_remaining": hours_dep,
+                "label": demand_info["contributing_factors"]["time_to_departure_label"]
+            },
+            "data_freshness": evidence_eval["freshness"],
+            "input_diagnostics": evidence_eval["validation_diagnostics"],
+            "fare_constraints": {
+                "min_fare": float(trip["min_fare"]),
+                "max_fare": float(trip["max_fare"]),
+                "current_fare": float(trip["current_fare"]),
+                "base_fare": float(trip["base_fare"]),
+                "raw_calculated_fare": pricing_info.get("raw_fare"),
+                "rounding_increment": settings.FARE_ROUNDING_INCREMENT,
+                "recommended_fare": float(pricing_info["recommended_fare"]),
+                "is_clamped": pricing_info["is_clamped"],
+                "clamped_reason": pricing_info["clamped_reason"],
+                "suggested_band": pricing_info["suggested_band"]
+            },
+            "applicable_rules": [
+                f"Demand Classifier: {demand_info['rule_name']} ({demand_info['contributing_factors']['threshold_used']})",
+                f"Pricing Policy: {pricing_info['rule_applied']}",
+                f"Currency Rounding: Nearest ₹{settings.FARE_ROUNDING_INCREMENT}",
+                f"Guardrail Constraints: Permitted band ₹{trip['min_fare']:.0f} to ₹{trip['max_fare']:.0f}"
+            ]
+        }
+
         rec_id = f"REC-{uuid.uuid4().hex[:8].upper()}"
 
         rec_payload = {
@@ -131,10 +270,14 @@ class RecommendationService:
                 "adjustment_pct": pricing_info["adjustment_pct_applied"],
                 "is_clamped": pricing_info["is_clamped"],
                 "clamped_reason": pricing_info["clamped_reason"],
-                "suggested_band": pricing_info["suggested_band"]
+                "suggested_band": pricing_info["suggested_band"],
+                "evidence_details": evidence_details
             },
             "booking_pace_info": demand_info["contributing_factors"]["booking_pace"]["description"],
             "validation_status": "VALID",
+            "evidence_quality_status": evidence_eval["status"],
+            "evidence_quality_explanation": evidence_eval["explanation"],
+            "evidence_quality_details": evidence_details,
             "policy_version": settings.POLICY_VERSION,
             "source_label": trip.get("data_source_label", settings.DATA_SOURCE_LABEL),
             "is_clamped": pricing_info["is_clamped"],
@@ -142,7 +285,7 @@ class RecommendationService:
             "notice": "Rule-based decision support; internal operator prototype. Does not modify live passenger fares."
         }
 
-        # Step 3: Persist recommendation and record in audit log
+        # Step 4: Persist recommendation and record in audit log
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -152,18 +295,19 @@ class RecommendationService:
                     fare_difference_pct, min_fare, max_fare, demand_category,
                     explanation, rule_applied, contributing_factors, booking_pace_info,
                     validation_status, policy_version, source_label, is_clamped,
-                    clamped_reason, notice
+                    clamped_reason, notice, evidence_quality_status, evidence_quality_details
                 ) VALUES (
                     :recommendation_id, :trip_id, :generated_at, :current_fare_at_generation,
                     :base_fare_at_generation, :recommended_fare, :fare_difference,
                     :fare_difference_pct, :min_fare, :max_fare, :demand_category,
                     :explanation, :rule_applied, :contributing_factors, :booking_pace_info,
                     :validation_status, :policy_version, :source_label, :is_clamped,
-                    :clamped_reason, :notice
+                    :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details
                 );
             """, {
                 **rec_payload,
                 "contributing_factors": json.dumps(rec_payload["contributing_factors"]),
+                "evidence_quality_details": json.dumps(rec_payload["evidence_quality_details"]),
                 "is_clamped": 1 if rec_payload["is_clamped"] else 0
             })
 
@@ -183,7 +327,8 @@ class RecommendationService:
                 pricing_info["rule_applied"],
                 json.dumps({
                     "demand_category": demand_info["demand_category"],
-                    "explanation": rec_payload["explanation"]
+                    "explanation": rec_payload["explanation"],
+                    "evidence_status": evidence_eval["status"]
                 }),
                 now_str,
                 settings.POLICY_VERSION,

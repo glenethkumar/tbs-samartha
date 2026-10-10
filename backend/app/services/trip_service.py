@@ -57,11 +57,17 @@ class TripService:
             )
             rec_row = cursor.fetchone()
             latest_rec = dict(rec_row) if rec_row else None
-            if latest_rec and "contributing_factors" in latest_rec:
-                try:
-                    latest_rec["contributing_factors"] = json.loads(latest_rec["contributing_factors"])
-                except Exception:
-                    pass
+            if latest_rec:
+                if "contributing_factors" in latest_rec and isinstance(latest_rec["contributing_factors"], str):
+                    try:
+                        latest_rec["contributing_factors"] = json.loads(latest_rec["contributing_factors"])
+                    except Exception:
+                        pass
+                if "evidence_quality_details" in latest_rec and isinstance(latest_rec["evidence_quality_details"], str):
+                    try:
+                        latest_rec["evidence_quality_details"] = json.loads(latest_rec["evidence_quality_details"])
+                    except Exception:
+                        pass
 
             # Get decisions for this trip
             cursor.execute(
@@ -80,8 +86,57 @@ class TripService:
         trip["can_recommend"] = can_recommend
         trip["validation_issues"] = issues
         trip["snapshots"] = snapshots
-        trip["latest_recommendation"] = latest_rec
         trip["decisions"] = decisions
+
+        if latest_rec and not latest_rec.get("evidence_quality_details"):
+            pace_obj = (
+                latest_rec.get("contributing_factors", {}).get("booking_pace")
+                if isinstance(latest_rec.get("contributing_factors"), dict)
+                else None
+            )
+            ev = ValidationService.evaluate_evidence_quality(
+                trip=trip,
+                is_valid=trip["is_valid"],
+                is_stale=trip["is_stale"],
+                validation_issues=trip["validation_issues"],
+                booking_pace=pace_obj
+            )
+            latest_rec["evidence_quality_status"] = ev["status"]
+            latest_rec["evidence_quality_explanation"] = ev["explanation"]
+            latest_rec["evidence_quality_details"] = {
+                "status": ev["status"],
+                "status_code": ev["status_code"],
+                "can_recommend": ev["can_recommend"],
+                "explanation": ev["explanation"],
+                "occupancy": {
+                    "value_pct": trip.get("occupancy_percent", 0.0),
+                    "threshold_used": f"< {settings.LOW_OCCUPANCY_THRESHOLD}%" if trip.get("occupancy_percent", 0) < settings.LOW_OCCUPANCY_THRESHOLD else f"> {settings.HIGH_OCCUPANCY_THRESHOLD}%" if trip.get("occupancy_percent", 0) > settings.HIGH_OCCUPANCY_THRESHOLD else f"{settings.LOW_OCCUPANCY_THRESHOLD}% - {settings.HIGH_OCCUPANCY_THRESHOLD}%",
+                    "band": latest_rec.get("demand_category", "Medium")
+                },
+                "booking_pace": pace_obj or {"available": False, "description": latest_rec.get("booking_pace_info", "Not available")},
+                "departure": {
+                    "departure_time": trip.get("departure_time"),
+                    "hours_remaining": None,
+                    "label": "Scheduled"
+                },
+                "data_freshness": ev["freshness"],
+                "input_diagnostics": ev["validation_diagnostics"],
+                "fare_constraints": {
+                    "min_fare": float(latest_rec.get("min_fare", trip.get("min_fare", 0.0))),
+                    "max_fare": float(latest_rec.get("max_fare", trip.get("max_fare", 0.0))),
+                    "current_fare": float(latest_rec.get("current_fare_at_generation", trip.get("current_fare", 0.0))),
+                    "base_fare": float(latest_rec.get("base_fare_at_generation", trip.get("base_fare", 0.0))),
+                    "recommended_fare": float(latest_rec.get("recommended_fare", 0.0)),
+                    "is_clamped": bool(latest_rec.get("is_clamped")),
+                    "clamped_reason": latest_rec.get("clamped_reason")
+                },
+                "applicable_rules": [
+                    f"Pricing Policy: {latest_rec.get('rule_applied', 'Standard Policy')}",
+                    f"Rounding: Nearest ₹{settings.FARE_ROUNDING_INCREMENT}"
+                ]
+            }
+
+        trip["latest_recommendation"] = latest_rec
 
         if is_valid:
             classification = DemandClassifier.classify(

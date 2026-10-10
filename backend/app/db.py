@@ -83,9 +83,21 @@ def init_db() -> None:
                 is_clamped INTEGER NOT NULL DEFAULT 0,
                 clamped_reason TEXT,
                 notice TEXT NOT NULL,
+                evidence_quality_status TEXT NOT NULL DEFAULT 'Strong data',
+                evidence_quality_details TEXT NOT NULL DEFAULT '{}',
                 FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
             );
         """)
+
+        # Schema migrations for existing databases
+        for col, col_def in [
+            ("evidence_quality_status", "TEXT NOT NULL DEFAULT 'Strong data'"),
+            ("evidence_quality_details", "TEXT NOT NULL DEFAULT '{}'"),
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE recommendations ADD COLUMN {col} {col_def}")
+            except sqlite3.OperationalError:
+                pass
 
         # 4. Operator decisions table
         cursor.execute("""
