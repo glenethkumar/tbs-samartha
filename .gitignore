@@ -36,3 +36,6 @@ backend/data/*.db
 .idea/
 *.swp
 *.swo
+
+# Cloned reference repos
+reference/
