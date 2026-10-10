@@ -1,0 +1,183 @@
+"""FleetYield AI - FastAPI Application and REST Endpoints.
+
+Implements all core operations for trips, validation, recommendations,
+operator decisions, audit logging, simulation, and rule transparency.
+"""
+
+import os
+from contextlib import asynccontextmanager
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.config import settings
+from app.db import init_db, reset_and_seed_database
+from app.seed import seed_data
+from app.models import (
+    TripResponse, TripCreate, TripUpdate,
+    RecommendationModel, DecisionCreate, OperatorDecisionModel,
+    AuditEventModel, SimulationRequest, SimulationResult,
+    DashboardSummary
+)
+from app.services.trip_service import TripService
+from app.services.recommendation_service import RecommendationService
+from app.services.operator_service import OperatorService
+from app.services.audit_service import AuditService
+from app.services.simulation_service import SimulationService
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize DB on startup and seed if empty
+    init_db()
+    trips = TripService.list_trips()
+    if not trips:
+        seed_data()
+    yield
+
+
+app = FastAPI(
+    title="FleetYield AI",
+    description="Explainable Bus Seat Pricing & Demand Intelligence API (TBS FleetOS)",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# CORS setup for Vite frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "FleetYield AI API",
+        "version": settings.POLICY_VERSION,
+        "data_source": settings.DATA_SOURCE_LABEL
+    }
+
+
+@app.get("/api/dashboard/summary")
+def get_dashboard_summary():
+    return TripService.get_dashboard_summary()
+
+
+@app.get("/api/trips")
+def list_trips(
+    q: Optional[str] = Query(None, description="Search by ID, route, origin, or destination"),
+    demand: Optional[str] = Query(None, description="Filter by Low, Medium, High"),
+    data_status: Optional[str] = Query(None, description="Filter by valid, stale, or invalid"),
+    sort_by: str = Query("departure_time", description="Sort field: departure_time, occupancy, trip_id"),
+    sort_order: str = Query("asc", description="Sort order: asc or desc")
+):
+    return TripService.list_trips(q=q, demand=demand, data_status=data_status, sort_by=sort_by, sort_order=sort_order)
+
+
+@app.get("/api/trips/{trip_id}")
+def get_trip(trip_id: str):
+    trip = TripService.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+    return trip
+
+
+@app.post("/api/trips", status_code=status.HTTP_201_CREATED)
+def create_trip(payload: TripCreate):
+    try:
+        new_trip = TripService.create_trip(payload.model_dump())
+        return new_trip
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.patch("/api/trips/{trip_id}")
+def update_trip(trip_id: str, payload: TripUpdate):
+    try:
+        updated = TripService.update_trip(trip_id, payload.model_dump(exclude_unset=True))
+        return updated
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/recommendations/generate")
+def generate_recommendation(payload: dict):
+    trip_id = payload.get("trip_id")
+    if not trip_id:
+        raise HTTPException(status_code=400, detail="trip_id is required in request body")
+    try:
+        rec = RecommendationService.generate_recommendation(trip_id)
+        return rec
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/decisions", status_code=status.HTTP_201_CREATED)
+def record_decision(payload: DecisionCreate):
+    try:
+        decision = OperatorService.record_decision(
+            recommendation_id=payload.recommendation_id,
+            decision_type=payload.decision_type,
+            decision_fare=payload.decision_fare,
+            reason=payload.reason,
+            actor_label=payload.actor_label
+        )
+        return decision
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/audit-events")
+def list_audit_events(
+    trip_id: Optional[str] = Query(None, description="Filter by trip ID"),
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    limit: int = Query(100, ge=1, le=500)
+):
+    return AuditService.get_events(trip_id=trip_id, event_type=event_type, limit=limit)
+
+
+@app.get("/api/audit-events/types")
+def list_audit_event_types():
+    return AuditService.get_event_types()
+
+
+@app.post("/api/simulation/run")
+def run_simulation(payload: SimulationRequest):
+    try:
+        res = SimulationService.run_simulation(
+            demand_multiplier=payload.demand_multiplier,
+            price_elasticity=payload.price_elasticity,
+            trip_ids=payload.trip_ids
+        )
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/assumptions")
+def get_assumptions():
+    return settings.get_assumptions_summary()
+
+
+@app.post("/api/database/reset")
+def reset_database():
+    reset_and_seed_database()
+    return {"message": "Database successfully reset and re-seeded with synthetic demo data."}
+
+
+# Mount built frontend if dist directory exists
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
