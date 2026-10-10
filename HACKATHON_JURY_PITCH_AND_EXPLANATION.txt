@@ -168,24 +168,42 @@ STEP 2: TRIP INVENTORY & REAL-TIME EVIDENCE BADGES
     pricing is intentionally locked for safety."
 
 STEP 3: DEEP-DIVE INSPECTOR ("WHY THIS RECOMMENDATION?")
-- Action: Click on a trip row (e.g., Trip #1 or #2) to open the slide-over inspector.
-  Expand the "Why this recommendation? - Evidence Quality & Pricing Audit" section.
+- Action: Click on a trip row (e.g., Trip #1 or #2) to open the trip intelligence profile.
+  Expand the "Why this recommendation? - 8-Point Evidence, Competitor & Policy Audit" section.
 - Say: "This is our core innovation: Complete Explainability.
-  Instead of presenting an arbitrary fare, we reveal the entire 7-point decision chain:
+  Instead of presenting an arbitrary fare, we reveal the entire 8-point decision chain:
   1. The exact occupancy and the threshold triggered (<30% Low or >70% High).
   2. The booking velocity per hour across a timestamped observation window.
   3. Time remaining until scheduled departure.
-  4. Data freshness age in minutes.
+  4. Data freshness age in hours (with strict 24h SLA).
   5. Any detected data inconsistencies or blockers.
-  6. The exact pricing policy formula applied.
-  7. The final suggested fare, clamped strictly between the trip's ₹600 minimum
-     and ₹1,200 maximum limit, rounded to the nearest ₹10."
+  6. Hard fare bounds [Min – Max] and clamping status.
+  7. The exact pricing policy formula applied and nearest ₹10 commercial rounding.
+  8. Competitor market benchmark (RedBus & AbhiBus median fare and market positioning)."
+
+STEP 3B: COMPETITOR MARKET PRICE INTELLIGENCE (REDBUS & ABHIBUS BENCHMARKING)
+- Action: Scroll to the "Competitor Market Price Intelligence" card in the trip profile.
+- Say: "Operators don't set prices in a vacuum. We benchmark our fares directly against
+  comparable market listings on RedBus and AbhiBus (filtered by same corridor, departure
+  window ±3 hours, and compatible AC sleeper/seater bus category).
+  Notice the live benchmarks:
+  - Market Median Fare: e.g. ₹1,350 across 5 competitor listings (Spread: ₹1,200 – ₹1,550).
+  - Operator Positioning: 'Below market median (-11.1%)' or 'Above market median (+7.5%)'.
+  - Actionable Strategic Advice: Prominently outputs one of three clear actions:
+    * INCREASE FARE: when demand is high and our price is below competitor median.
+    * DECREASE FARE: when demand is soft (<30%) or we are uncompetitively expensive.
+    * MAINTAIN FARE: when demand is balanced (30–70%) and fares match market median.
+  - Interactive CSV Rate Sheet Import: Operators can upload or paste real market rate sheets,
+    or reset to 55 seeded Indian fleet operator listings (VRL, SRS, Orange, Parveen, Kallada).
+  - Compliance Note: Default records are synthetic catalog representations (is_simulated=true)
+    to respect non-disclosure and aggregator Terms of Service."
 
 STEP 4: OPERATOR APPROVAL / OVERRIDE WORKFLOW
-- Action: Click "Review Recommendation" to open the Decision Modal.
+- Action: Click "Approve Suggested Fare", "Reject", or "Manual Override".
 - Say: "Here is the human-in-the-loop checkpoint. The operator sees:
   - Current Fare: ₹850
   - Proposed Fare: ₹760 (-10.6%)
+  - Strategic Action: 'Decrease fare'
   - System Rationale: 'Low demand (25.0% occupancy). Price adjusted to stimulate bookings.'
   The operator can Approve, Reject, or Manually Override. Let's enter an override
   fare of ₹780 with note: 'Weekend booking counters report strong evening walk-ins.'
@@ -220,19 +238,21 @@ STEP 6: FIXED-FARE BASELINE SIMULATION & UNDERPERFORMANCE PROOF
 Key Points to Emphasize:
 - Decoupled Clean Architecture:
   * FastAPI backend with strict Pydantic v2 data contracts.
-  * React 18 frontend with strict TypeScript types (`types.ts`) matching backend models.
+  * React 19 frontend with strict TypeScript types (`types.ts`) matching backend models.
   * SQLite persistence (`fleetyield.db`) using relational schema constraints
-    (`CHECK min_fare <= max_fare`, `CHECK total_capacity > 0`).
+    (`CHECK min_fare <= max_fare`, `CHECK total_seats > 0`).
 - Deterministic Pricing Policies:
   * Pure, isolated mathematical functions in `pricing_policy.py`. Zero side effects.
   * Nearest ₹10 commercial rounding (`round(fare / 10) * 10`) with strict clamp guards.
+  * Competitor market intelligence integration (`competitor_service.py`) computing medians,
+    spreads, and 3 explicit strategic actions (`Increase fare`, `Decrease fare`, `Maintain fare`).
 - Comprehensive Pre-Flight Validation Engine (`validation_service.py`):
   * Guards against negative fares, inverted boundaries, overbooked capacity, and
-    stale fixtures (>120 mins).
+    stale fixtures (>24h).
 - Automated Regression Test Suite:
-  * 37 automated tests in `backend/tests/` running via Pytest (100% pass rate in ~2s).
-  * Covers unit boundaries, currency rounding, invalid input rejections, simulation
-    non-negativity, duplicate decision prevention, and API contracts.
+  * 45 automated tests in `backend/tests/` running via Pytest (100% pass rate in 3.6s).
+  * Covers unit boundaries, currency rounding, invalid input rejections, competitor
+    medians, CSV importing, simulation non-negativity, and integration API contracts.
 
 --------------------------------------------------------------------------------
 5.2. FOR BUSINESS & DOMAIN JUDGES (Fleet Economics, Yield & TBS Synergy)

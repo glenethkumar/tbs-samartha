@@ -264,9 +264,34 @@ export const Trips: React.FC<TripsProps> = ({ onSelectTrip }) => {
                         </span>
                       </td>
                       <td>
-                        <span className={`badge badge-${trip.demand_category?.toLowerCase() || 'medium'}`}>
-                          {trip.demand_category}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          <span className={`badge badge-${trip.demand_category?.toLowerCase() || 'medium'}`}>
+                            {trip.demand_category}
+                          </span>
+                          {(trip.latest_recommendation?.recommended_action || trip.recommended_action) && (
+                            <span 
+                              style={{ 
+                                fontSize: '0.68rem', 
+                                fontWeight: 700, 
+                                padding: '2px 6px', 
+                                borderRadius: '4px',
+                                letterSpacing: '0.02em',
+                                color: (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Increase fare' 
+                                  ? '#34d399' 
+                                  : (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Decrease fare' 
+                                  ? '#fb7185' 
+                                  : '#38bdf8',
+                                backgroundColor: (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Increase fare' 
+                                  ? 'rgba(16, 185, 129, 0.18)' 
+                                  : (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Decrease fare' 
+                                  ? 'rgba(244, 63, 94, 0.18)' 
+                                  : 'rgba(56, 189, 248, 0.18)'
+                              }}
+                            >
+                              {trip.latest_recommendation?.recommended_action || trip.recommended_action}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {trip.is_stale ? (

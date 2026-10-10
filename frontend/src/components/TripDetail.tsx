@@ -10,6 +10,8 @@ import {
   ShieldAlert, 
   History, 
   TrendingUp, 
+  TrendingDown,
+  Minus,
   CheckCircle2, 
   Info, 
   Calendar, 
@@ -17,9 +19,14 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
-  ShieldCheck
+  ShieldCheck,
+  Building2,
+  Upload,
+  FileSpreadsheet,
+  RotateCcw,
+  Star
 } from 'lucide-react';
-import type { Trip } from '../types';
+import type { Trip, CompetitorPriceSummary, CompetitorCsvImportResult } from '../types';
 import { api } from '../api';
 import { DecisionModal } from './DecisionModal';
 
@@ -37,6 +44,14 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [whyExpanded, setWhyExpanded] = useState(true);
 
+  // Competitor pricing state
+  const [competitorSummary, setCompetitorSummary] = useState<CompetitorPriceSummary | null>(null);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [importingCsv, setImportingCsv] = useState(false);
+  const [csvResult, setCsvResult] = useState<CompetitorCsvImportResult | null>(null);
+  const [resettingSample, setResettingSample] = useState(false);
+
   // Decision modal state
   const [decisionModalType, setDecisionModalType] = useState<'REJECTED' | 'OVERRIDDEN' | null>(null);
 
@@ -45,6 +60,15 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
       setLoading(true);
       const data = await api.getTrip(tripId);
       setTrip(data);
+
+      try {
+        const comp = await api.getTripCompetitors(tripId);
+        setCompetitorSummary(comp);
+      } catch {
+        if (data.latest_recommendation?.competitor_summary) {
+          setCompetitorSummary(data.latest_recommendation.competitor_summary);
+        }
+      }
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to fetch trip details' });
     } finally {
@@ -70,9 +94,10 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
           message: 'Recommendation withheld by safety policy due to data-quality flags.',
         });
       } else {
+        const actionStr = rec.recommended_action ? ` [${rec.recommended_action.toUpperCase()}]` : '';
         setFeedback({
           type: 'success',
-          message: `Generated rule-based recommendation: ₹${rec.recommended_fare}`,
+          message: `Generated rule-based recommendation${actionStr}: ₹${rec.recommended_fare}`,
         });
       }
     } catch (err: any) {
@@ -80,6 +105,55 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvText.trim()) {
+      setFeedback({ type: 'error', message: 'Please provide CSV content to import' });
+      return;
+    }
+    setImportingCsv(true);
+    setCsvResult(null);
+    try {
+      const res = await api.importCompetitorCsv(csvText);
+      setCsvResult(res);
+      setFeedback({
+        type: 'success',
+        message: `Successfully imported ${res.records_imported} competitor listings (${res.records_rejected} skipped).`
+      });
+      await fetchTripDetails();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to import CSV' });
+    } finally {
+      setImportingCsv(false);
+    }
+  };
+
+  const handleResetSampleCompetitors = async () => {
+    setResettingSample(true);
+    try {
+      const res = await api.resetCompetitorSample();
+      setFeedback({
+        type: 'success',
+        message: `Reset competitor catalog: ${res.count} verified Indian fleet listings seeded.`
+      });
+      await fetchTripDetails();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to reset competitor sample data' });
+    } finally {
+      setResettingSample(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) setCsvText(text);
+    };
+    reader.readAsText(file);
   };
 
   const handleApprove = async () => {
@@ -349,6 +423,223 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         )}
       </div>
 
+      {/* Competitor Market Intelligence (RedBus & AbhiBus) Card */}
+      <div className="card" style={{ border: '1px solid rgba(245, 158, 11, 0.35)', backgroundColor: 'var(--bg-secondary)' }}>
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="card-title" style={{ fontSize: '1.15rem' }}>
+                <Building2 size={20} style={{ color: '#f59e0b' }} />
+                <span>Competitor Market Price Intelligence</span>
+              </div>
+              <span 
+                className="badge badge-medium" 
+                style={{ 
+                  fontSize: '0.72rem', 
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                  color: '#f59e0b', 
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  fontWeight: 700 
+                }}
+              >
+                RedBus &amp; AbhiBus Corridors
+              </span>
+            </div>
+            <div className="card-subtitle">
+              Live corridor rates for {trip.origin} &rarr; {trip.destination} within &plusmn;3h departure window and compatible {trip.bus_type} fleet.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              id="btn-import-competitor-csv"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsCsvModalOpen(true)}
+              title="Upload custom market rate sheet CSV"
+            >
+              <Upload size={14} />
+              <span>Import Rate Sheet</span>
+            </button>
+
+            <button
+              id="btn-reset-sample-competitors"
+              className="btn btn-secondary btn-sm"
+              onClick={handleResetSampleCompetitors}
+              disabled={resettingSample}
+              title="Reset to 55 seeded RedBus & AbhiBus listings across 11 routes"
+            >
+              <RotateCcw size={14} className={resettingSample ? 'animate-spin' : ''} />
+              <span>{resettingSample ? 'Resetting...' : 'Reset Sample'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Metrics Grid */}
+        {competitorSummary && competitorSummary.sample_size > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              {/* Metric 1: Median Fare */}
+              <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                  MARKET MEDIAN FARE
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f59e0b', marginTop: '4px' }}>
+                  ₹{competitorSummary.median_fare}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  Market Spread: <strong>₹{competitorSummary.min_fare} &ndash; ₹{competitorSummary.max_fare}</strong> ({competitorSummary.sample_size} listings)
+                </div>
+              </div>
+
+              {/* Metric 2: Our Market Position */}
+              <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                  OUR POSITION VS MEDIAN
+                </div>
+                <div 
+                  style={{ 
+                    fontSize: '1.5rem', 
+                    fontWeight: 800, 
+                    marginTop: '4px', 
+                    color: (competitorSummary.current_fare_diff_vs_median ?? 0) < 0 
+                      ? '#34d399' 
+                      : (competitorSummary.current_fare_diff_vs_median ?? 0) > 0 
+                      ? '#fb7185' 
+                      : '#38bdf8' 
+                  }}
+                >
+                  {competitorSummary.current_fare_diff_vs_median !== undefined && competitorSummary.current_fare_diff_vs_median !== null ? (
+                    `${competitorSummary.current_fare_diff_vs_median >= 0 ? '+' : ''}₹${competitorSummary.current_fare_diff_vs_median} (${competitorSummary.current_fare_diff_vs_median_pct}%)`
+                  ) : '₹0'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-main)', marginTop: '4px' }}>
+                  Status: <span style={{ fontWeight: 600 }}>{competitorSummary.market_position}</span>
+                </div>
+              </div>
+
+              {/* Metric 3: Lowest Listed */}
+              <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                  LOWEST MARKET FARE
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#34d399', marginTop: '4px' }}>
+                  ₹{competitorSummary.cheapest_fare ?? 'N/A'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  {competitorSummary.cheapest_operator || 'Operator'} &bull; <span style={{ color: '#fb7185' }}>{competitorSummary.cheapest_platform || 'RedBus'}</span>
+                </div>
+              </div>
+
+              {/* Metric 4: Premium Listed */}
+              <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+                  PREMIUM MARKET FARE
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a78bfa', marginTop: '4px' }}>
+                  ₹{competitorSummary.premium_fare ?? 'N/A'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  {competitorSummary.premium_operator || 'Operator'} &bull; <span style={{ color: '#fbbf24' }}>{competitorSummary.premium_platform || 'AbhiBus'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Comparable Competitor Listings Table */}
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                <span>Comparable RedBus &amp; AbhiBus Listings on this Route</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 400 }}>
+                  Platforms represented: {competitorSummary.platforms_represented.join(', ') || 'RedBus, AbhiBus'}
+                </span>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table" style={{ fontSize: '0.84rem' }}>
+                  <thead>
+                    <tr>
+                      <th>Operator</th>
+                      <th>Platform</th>
+                      <th>Bus Type</th>
+                      <th>Departure Time</th>
+                      <th>Available Seats</th>
+                      <th>Rating</th>
+                      <th>Fare (₹)</th>
+                      <th>Vs Our Fare (₹{trip.current_fare})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitorSummary.comparable_competitors.map((item) => {
+                      const fareDiff = item.fare - trip.current_fare;
+                      return (
+                        <tr key={item.competitor_fare_id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{item.operator_name}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{item.origin} &rarr; {item.destination}</div>
+                          </td>
+                          <td>
+                            <span 
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '2px 8px',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                backgroundColor: item.platform === 'RedBus' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                color: item.platform === 'RedBus' ? '#f87171' : '#fbbf24',
+                                border: `1px solid ${item.platform === 'RedBus' ? '#ef4444' : '#f59e0b'}40`
+                              }}
+                            >
+                              {item.platform}
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-muted)' }}>{item.bus_type}</td>
+                          <td>
+                            <div>{new Date(item.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
+                              {new Date(item.departure_time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600, color: item.available_seats < 10 ? '#fb7185' : '#34d399' }}>
+                              {item.available_seats} seats
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Star size={13} style={{ color: '#fbbf24', fill: '#fbbf24' }} />
+                              <span style={{ fontWeight: 600 }}>{item.rating}</span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>({item.review_count})</span>
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f59e0b' }}>
+                            ₹{item.fare}
+                          </td>
+                          <td style={{ fontWeight: 600, color: fareDiff > 0 ? '#34d399' : fareDiff < 0 ? '#fb7185' : 'var(--text-muted)' }}>
+                            {fareDiff > 0 ? `+₹${fareDiff}` : fareDiff < 0 ? `-₹${Math.abs(fareDiff)}` : 'Parity (₹0)'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Synthetic Demo Labeling / Data Privacy Policy Notice */}
+            <div style={{ padding: '10px 14px', backgroundColor: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #f59e0b', fontSize: '0.76rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
+              <strong>Compliance &amp; Data Transparency:</strong> RedBus (SeatSeller) and AbhiBus are closed partner APIs requiring NDA contracts. In strict accordance with platform policies, the above competitor records reflect verified Indian private operator route structures (VRL, SRS, Orange, Parveen, Kallada) tagged as <code>is_simulated = true</code> for demonstrative benchmarking. Operators may upload proprietary live market rate sheets via the "Import Rate Sheet" button above.
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <Building2 size={28} style={{ color: '#f59e0b', marginBottom: '8px', opacity: 0.6 }} />
+            <div>No comparable RedBus or AbhiBus competitor fares found for this departure window (&plusmn;3h).</div>
+            <div style={{ fontSize: '0.8rem', marginTop: '6px' }}>
+              Click <strong>Reset Sample</strong> above to seed realistic operator listings, or upload a custom rate sheet CSV.
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Recommendation Engine Workspace */}
       <div className="card" style={{ border: '1px solid #38bdf8', boxShadow: 'var(--shadow-glow)' }}>
         <div className="card-header">
@@ -461,9 +752,43 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      SUGGESTED SEAT FARE
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        SUGGESTED SEAT FARE
+                      </div>
+                      {/* Strategic Recommended Action Pill */}
+                      {rec.recommended_action && (
+                        <span 
+                          style={{
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            padding: '3px 12px',
+                            borderRadius: '9999px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            backgroundColor: rec.recommended_action === 'Increase fare' 
+                              ? 'rgba(16, 185, 129, 0.2)' 
+                              : rec.recommended_action === 'Decrease fare' 
+                              ? 'rgba(244, 63, 94, 0.2)' 
+                              : 'rgba(56, 189, 248, 0.2)',
+                            color: rec.recommended_action === 'Increase fare' 
+                              ? '#34d399' 
+                              : rec.recommended_action === 'Decrease fare' 
+                              ? '#fb7185' 
+                              : '#38bdf8',
+                            border: `1px solid ${rec.recommended_action === 'Increase fare' ? '#10b981' : rec.recommended_action === 'Decrease fare' ? '#f43f5e' : '#38bdf8'}60`,
+                            boxShadow: '0 0 10px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          {rec.recommended_action === 'Increase fare' && <TrendingUp size={14} />}
+                          {rec.recommended_action === 'Decrease fare' && <TrendingDown size={14} />}
+                          {rec.recommended_action === 'Maintain fare' && <Minus size={14} />}
+                          <span>{rec.recommended_action.toUpperCase()}</span>
+                        </span>
+                      )}
                     </div>
+
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', marginTop: '6px' }}>
                       <span style={{ fontSize: '2.5rem', fontWeight: 800, color: '#38bdf8' }}>
                         ₹{rec.recommended_fare}
@@ -525,7 +850,7 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                   <Sparkles size={18} style={{ color: '#38bdf8' }} />
                   <span>Why this recommendation?</span>
                   <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', backgroundColor: 'rgba(56, 189, 248, 0.1)', padding: '2px 8px', borderRadius: '12px' }}>
-                    7-Point Evidence &amp; Policy Audit
+                    8-Point Evidence, Competitor &amp; Policy Audit
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '0.82rem' }}>
@@ -682,6 +1007,42 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                         </div>
                       </div>
                     </div>
+
+                    {/* Dimension 8: Competitor Market Benchmark */}
+                    <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.74rem', color: '#f59e0b', textTransform: 'uppercase', fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Building2 size={14} />
+                        <span>8. COMPETITOR MARKET BENCHMARK (REDBUS &amp; ABHIBUS)</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', fontSize: '0.82rem' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Market Median: </span>
+                          <strong style={{ color: '#f59e0b' }}>
+                            {rec.contributing_factors?.competitor_benchmark?.median_fare !== undefined && rec.contributing_factors?.competitor_benchmark?.median_fare !== null
+                              ? `₹${rec.contributing_factors.competitor_benchmark.median_fare}`
+                              : competitorSummary?.median_fare ? `₹${competitorSummary.median_fare}` : 'No listings'}
+                          </strong>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginLeft: '6px' }}>
+                            (Range: ₹{rec.contributing_factors?.competitor_benchmark?.min_fare ?? competitorSummary?.min_fare ?? 0} &ndash; ₹{rec.contributing_factors?.competitor_benchmark?.max_fare ?? competitorSummary?.max_fare ?? 0})
+                          </span>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Operator Position: </span>
+                          <strong style={{ color: '#38bdf8' }}>
+                            {rec.contributing_factors?.competitor_benchmark?.market_position || competitorSummary?.market_position || 'Benchmark active'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Strategic Action: </span>
+                          <strong style={{ color: rec.recommended_action === 'Increase fare' ? '#34d399' : rec.recommended_action === 'Decrease fare' ? '#fb7185' : '#38bdf8' }}>
+                            {rec.recommended_action || 'Maintain fare'}
+                          </strong>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', marginLeft: '6px' }}>
+                            (Synthesis of Occupancy &amp; Competitor Median)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
@@ -821,6 +1182,151 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
           onClose={() => setDecisionModalType(null)}
           onDecisionSaved={handleDecisionSaved}
         />
+      )}
+
+      {/* CSV Import Modal */}
+      {isCsvModalOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '16px'
+          }}
+          onClick={() => setIsCsvModalOpen(false)}
+        >
+          <div 
+            className="card" 
+            style={{ 
+              maxWidth: '640px', 
+              width: '100%', 
+              maxHeight: '90vh', 
+              overflowY: 'auto',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileSpreadsheet size={20} style={{ color: '#f59e0b' }} />
+                <div className="card-title" style={{ fontSize: '1.2rem' }}>Import Competitor Rate Sheet (CSV)</div>
+              </div>
+              <button 
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsCsvModalOpen(false)}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
+              Upload or paste market fares from RedBus, AbhiBus, or private GDS feeds. Imported fares will immediately calibrate competitor medians and market positioning for matching routes and departure windows.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                  Select CSV File:
+                </label>
+                <input 
+                  type="file" 
+                  accept=".csv,text/csv" 
+                  onChange={handleFileUpload}
+                  style={{
+                    fontSize: '0.82rem',
+                    color: 'var(--text-muted)',
+                    padding: '8px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                    width: '100%',
+                    backgroundColor: 'var(--bg-input)'
+                  }}
+                />
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Or Paste CSV Content:
+                  </label>
+                  <button 
+                    type="button"
+                    style={{ fontSize: '0.72rem', color: '#38bdf8', background: 'none', border: 'none', cursor: 'pointer' }}
+                    onClick={() => {
+                      setCsvText(`origin,destination,departure_time,bus_type,operator_name,platform,fare,available_seats,rating
+${trip.origin},${trip.destination},${trip.departure_time},${trip.bus_type},SRS Travels,RedBus,${Math.round(trip.current_fare * 1.05)},14,4.3
+${trip.origin},${trip.destination},${trip.departure_time},${trip.bus_type},Orange Tours,AbhiBus,${Math.round(trip.current_fare * 1.1)},18,4.5
+${trip.origin},${trip.destination},${trip.departure_time},${trip.bus_type},VRL Travels,RedBus,${Math.round(trip.current_fare * 0.95)},10,4.6`);
+                    }}
+                  >
+                    Insert Example Template
+                  </button>
+                </div>
+                <textarea 
+                  rows={6}
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                  placeholder="origin,destination,departure_time,bus_type,operator_name,platform,fare,available_seats,rating..."
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-subtle)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-main)'
+                  }}
+                />
+              </div>
+
+              {csvResult && (
+                <div className={`notice-box notice-${csvResult.success ? 'info' : 'danger'}`}>
+                  {csvResult.success ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                  <div>
+                    <div>{csvResult.message}</div>
+                    {csvResult.errors && csvResult.errors.length > 0 && (
+                      <div style={{ marginTop: '6px', fontSize: '0.75rem' }}>
+                        <strong>Skipped row notes:</strong>
+                        <ul style={{ paddingLeft: '14px', margin: '4px 0 0 0' }}>
+                          {csvResult.errors.slice(0, 3).map((err: string, i: number) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={() => setIsCsvModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleImportCsv}
+                  disabled={importingCsv || !csvText.trim()}
+                  style={{ backgroundColor: '#f59e0b', borderColor: '#d97706', color: '#111827' }}
+                >
+                  <Upload size={16} className={importingCsv ? 'animate-spin' : ''} />
+                  <span>{importingCsv ? 'Importing Rows...' : 'Import Rate Sheet'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

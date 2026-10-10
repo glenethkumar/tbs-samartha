@@ -69,6 +69,59 @@ export interface EvidenceQualityDetails {
     suggested_band?: { low: number; high: number };
   };
   applicable_rules: string[];
+  competitor_benchmark?: {
+    sample_size: number;
+    median_fare?: number | null;
+    min_fare?: number | null;
+    max_fare?: number | null;
+    current_fare_diff_vs_median?: number | null;
+    current_fare_diff_vs_median_pct?: number | null;
+    market_position: string;
+    platforms?: string[];
+  };
+}
+
+export type PricingAction = "Increase fare" | "Decrease fare" | "Maintain fare";
+
+export interface CompetitorFare {
+  competitor_fare_id: string;
+  trip_id?: string | null;
+  origin: string;
+  destination: string;
+  route_name?: string | null;
+  departure_time: string;
+  bus_type: string;
+  operator_name: string;
+  platform: "RedBus" | "AbhiBus" | string;
+  fare: number;
+  currency: string;
+  available_seats: number;
+  rating: number;
+  review_count: number;
+  amenities: string[];
+  is_simulated: boolean;
+  data_source_label: string;
+  captured_at: string;
+}
+
+export interface CompetitorPriceSummary {
+  sample_size: number;
+  median_fare?: number | null;
+  min_fare?: number | null;
+  max_fare?: number | null;
+  average_fare?: number | null;
+  cheapest_operator?: string | null;
+  cheapest_platform?: string | null;
+  cheapest_fare?: number | null;
+  premium_operator?: string | null;
+  premium_platform?: string | null;
+  premium_fare?: number | null;
+  current_fare_diff_vs_median?: number | null;
+  current_fare_diff_vs_median_pct?: number | null;
+  market_position: string;
+  platforms_represented: string[];
+  comparable_competitors: CompetitorFare[];
+  matching_criteria?: Record<string, any>;
 }
 
 export interface Recommendation {
@@ -78,6 +131,8 @@ export interface Recommendation {
   current_fare_at_generation: number;
   base_fare_at_generation: number;
   recommended_fare: number;
+  recommended_action?: PricingAction | string;
+  competitor_summary?: CompetitorPriceSummary | null;
   fare_difference: number;
   fare_difference_pct: number;
   min_fare: number;
@@ -126,6 +181,16 @@ export interface Trip {
   snapshots?: BookingSnapshot[];
   latest_recommendation?: Recommendation | null;
   decisions?: OperatorDecision[];
+  recommended_action?: PricingAction | string;
+  competitor_summary?: CompetitorPriceSummary | null;
+}
+
+export interface CompetitorCsvImportResult {
+  success: boolean;
+  records_imported: number;
+  records_rejected: number;
+  errors: string[];
+  message: string;
 }
 
 export interface DashboardSummary {

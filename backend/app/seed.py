@@ -315,6 +315,11 @@ def seed_data() -> None:
 
         conn.commit()
 
+    # Seed realistic competitor benchmarks (RedBus & AbhiBus)
+    from app.services.competitor_service import CompetitorService
+    comp_count = CompetitorService.seed_sample_competitors()
+    print(f"Seeded {comp_count} competitor benchmarks across routes.")
+
 
 if __name__ == "__main__":
     from app.db import init_db

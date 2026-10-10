@@ -14,13 +14,15 @@ from app.services.trip_service import TripService
 from app.services.demand_classifier import DemandClassifier
 from app.services.pricing_policy import PricingPolicy
 from app.services.validation_service import ValidationService
+from app.services.competitor_service import CompetitorService
 
 
 class RecommendationService:
     @staticmethod
     def generate_recommendation(trip_id: str) -> Dict[str, Any]:
         """
-        Generates an explainable fare recommendation with Evidence-Quality verification.
+        Generates an explainable fare recommendation with Evidence-Quality verification
+        and Competitor Price Benchmarking (RedBus & AbhiBus).
         Withholds recommendation if data fails validation or is stale (Insufficient data).
         """
         trip = TripService.get_trip(trip_id)
@@ -74,6 +76,11 @@ class RecommendationService:
                     "is_clamped": False,
                     "clamped_reason": None
                 },
+                "competitor_benchmark": {
+                    "sample_size": 0,
+                    "median_fare": None,
+                    "market_position": "Not evaluated (safety block)"
+                },
                 "applicable_rules": [
                     "Safety Policy: Withhold recommendation on invalid or stale data"
                 ]
@@ -88,6 +95,7 @@ class RecommendationService:
                 "current_fare_at_generation": float(trip["current_fare"]),
                 "base_fare_at_generation": float(trip["base_fare"]),
                 "recommended_fare": float(trip["current_fare"]),
+                "recommended_action": "Maintain fare",
                 "fare_difference": 0.0,
                 "fare_difference_pct": 0.0,
                 "min_fare": float(trip.get("min_fare", 0.0)),
@@ -110,6 +118,7 @@ class RecommendationService:
                 "evidence_quality_status": evidence_eval["status"],
                 "evidence_quality_explanation": evidence_eval["explanation"],
                 "evidence_quality_details": evidence_details,
+                "competitor_summary": {},
                 "policy_version": settings.POLICY_VERSION,
                 "source_label": trip.get("data_source_label", settings.DATA_SOURCE_LABEL),
                 "is_clamped": False,
@@ -127,19 +136,22 @@ class RecommendationService:
                         fare_difference_pct, min_fare, max_fare, demand_category,
                         explanation, rule_applied, contributing_factors, booking_pace_info,
                         validation_status, policy_version, source_label, is_clamped,
-                        clamped_reason, notice, evidence_quality_status, evidence_quality_details
+                        clamped_reason, notice, evidence_quality_status, evidence_quality_details,
+                        recommended_action, competitor_summary
                     ) VALUES (
                         :recommendation_id, :trip_id, :generated_at, :current_fare_at_generation,
                         :base_fare_at_generation, :recommended_fare, :fare_difference,
                         :fare_difference_pct, :min_fare, :max_fare, :demand_category,
                         :explanation, :rule_applied, :contributing_factors, :booking_pace_info,
                         :validation_status, :policy_version, :source_label, :is_clamped,
-                        :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details
+                        :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details,
+                        :recommended_action, :competitor_summary
                     );
                 """, {
                     **blocked_payload,
                     "contributing_factors": json.dumps(blocked_payload["contributing_factors"]),
                     "evidence_quality_details": json.dumps(blocked_payload["evidence_quality_details"]),
+                    "competitor_summary": json.dumps(blocked_payload["competitor_summary"]),
                     "is_clamped": 0
                 })
 
@@ -179,7 +191,10 @@ class RecommendationService:
         pace_info = demand_info["contributing_factors"].get("booking_pace")
         hours_dep = demand_info["contributing_factors"].get("hours_to_departure")
 
-        # Step 2: Fare recommendation calculation
+        # Step 2: Fetch competitor market benchmarks (RedBus & AbhiBus)
+        comp_summary = CompetitorService.get_competitor_summary(trip_id)
+
+        # Step 3: Fare recommendation calculation incorporating competitor benchmarks
         pricing_info = PricingPolicy.calculate_recommendation(
             base_fare=trip["base_fare"],
             current_fare=trip["current_fare"],
@@ -189,10 +204,11 @@ class RecommendationService:
             occupancy_percent=trip["occupancy_percent"],
             booking_pace_info=pace_info,
             hours_to_departure=hours_dep,
-            trip_id=trip_id
+            trip_id=trip_id,
+            competitor_summary=comp_summary
         )
 
-        # Step 3: Evaluate Explainable Evidence Quality
+        # Step 4: Evaluate Explainable Evidence Quality
         evidence_eval = ValidationService.evaluate_evidence_quality(
             trip=trip,
             is_valid=trip["is_valid"],
@@ -241,9 +257,21 @@ class RecommendationService:
                 "clamped_reason": pricing_info["clamped_reason"],
                 "suggested_band": pricing_info["suggested_band"]
             },
+            "competitor_benchmark": {
+                "sample_size": comp_summary.get("sample_size", 0),
+                "median_fare": comp_summary.get("median_fare"),
+                "min_fare": comp_summary.get("min_fare"),
+                "max_fare": comp_summary.get("max_fare"),
+                "current_fare_diff_vs_median": comp_summary.get("current_fare_diff_vs_median"),
+                "current_fare_diff_vs_median_pct": comp_summary.get("current_fare_diff_vs_median_pct"),
+                "market_position": comp_summary.get("market_position", "No data"),
+                "platforms": comp_summary.get("platforms_represented", [])
+            },
             "applicable_rules": [
                 f"Demand Classifier: {demand_info['rule_name']} ({demand_info['contributing_factors']['threshold_used']})",
                 f"Pricing Policy: {pricing_info['rule_applied']}",
+                f"Action Strategy: {pricing_info.get('recommended_action', 'Maintain fare')}",
+                f"Market Benchmark: RedBus & AbhiBus median ₹{comp_summary.get('median_fare', 0):.0f} ({comp_summary.get('sample_size', 0)} listings)" if comp_summary.get("median_fare") else "Market Benchmark: Standalone corridor policy",
                 f"Currency Rounding: Nearest ₹{settings.FARE_ROUNDING_INCREMENT}",
                 f"Guardrail Constraints: Permitted band ₹{trip['min_fare']:.0f} to ₹{trip['max_fare']:.0f}"
             ]
@@ -258,6 +286,7 @@ class RecommendationService:
             "current_fare_at_generation": float(trip["current_fare"]),
             "base_fare_at_generation": float(trip["base_fare"]),
             "recommended_fare": pricing_info["recommended_fare"],
+            "recommended_action": pricing_info.get("recommended_action", "Maintain fare"),
             "fare_difference": pricing_info["fare_difference"],
             "fare_difference_pct": pricing_info["fare_difference_pct"],
             "min_fare": float(trip["min_fare"]),
@@ -271,13 +300,15 @@ class RecommendationService:
                 "is_clamped": pricing_info["is_clamped"],
                 "clamped_reason": pricing_info["clamped_reason"],
                 "suggested_band": pricing_info["suggested_band"],
-                "evidence_details": evidence_details
+                "evidence_details": evidence_details,
+                "competitor_summary": comp_summary
             },
             "booking_pace_info": demand_info["contributing_factors"]["booking_pace"]["description"],
             "validation_status": "VALID",
             "evidence_quality_status": evidence_eval["status"],
             "evidence_quality_explanation": evidence_eval["explanation"],
             "evidence_quality_details": evidence_details,
+            "competitor_summary": comp_summary,
             "policy_version": settings.POLICY_VERSION,
             "source_label": trip.get("data_source_label", settings.DATA_SOURCE_LABEL),
             "is_clamped": pricing_info["is_clamped"],
@@ -285,7 +316,7 @@ class RecommendationService:
             "notice": "Rule-based decision support; internal operator prototype. Does not modify live passenger fares."
         }
 
-        # Step 4: Persist recommendation and record in audit log
+        # Step 5: Persist recommendation and record in audit log
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -295,19 +326,22 @@ class RecommendationService:
                     fare_difference_pct, min_fare, max_fare, demand_category,
                     explanation, rule_applied, contributing_factors, booking_pace_info,
                     validation_status, policy_version, source_label, is_clamped,
-                    clamped_reason, notice, evidence_quality_status, evidence_quality_details
+                    clamped_reason, notice, evidence_quality_status, evidence_quality_details,
+                    recommended_action, competitor_summary
                 ) VALUES (
                     :recommendation_id, :trip_id, :generated_at, :current_fare_at_generation,
                     :base_fare_at_generation, :recommended_fare, :fare_difference,
                     :fare_difference_pct, :min_fare, :max_fare, :demand_category,
                     :explanation, :rule_applied, :contributing_factors, :booking_pace_info,
                     :validation_status, :policy_version, :source_label, :is_clamped,
-                    :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details
+                    :clamped_reason, :notice, :evidence_quality_status, :evidence_quality_details,
+                    :recommended_action, :competitor_summary
                 );
             """, {
                 **rec_payload,
                 "contributing_factors": json.dumps(rec_payload["contributing_factors"]),
                 "evidence_quality_details": json.dumps(rec_payload["evidence_quality_details"]),
+                "competitor_summary": json.dumps(rec_payload["competitor_summary"]),
                 "is_clamped": 1 if rec_payload["is_clamped"] else 0
             })
 
@@ -324,11 +358,13 @@ class RecommendationService:
                 trip_id,
                 trip["current_fare"],
                 pricing_info["recommended_fare"],
-                pricing_info["rule_applied"],
+                f"Action: {rec_payload['recommended_action']} | {pricing_info['rule_applied']}",
                 json.dumps({
                     "demand_category": demand_info["demand_category"],
+                    "recommended_action": rec_payload["recommended_action"],
                     "explanation": rec_payload["explanation"],
-                    "evidence_status": evidence_eval["status"]
+                    "evidence_status": evidence_eval["status"],
+                    "competitor_median": comp_summary.get("median_fare")
                 }),
                 now_str,
                 settings.POLICY_VERSION,

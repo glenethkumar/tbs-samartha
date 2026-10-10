@@ -4,7 +4,8 @@ import {
   ShieldCheck, 
   AlertTriangle, 
   Sliders, 
-  HelpCircle 
+  HelpCircle,
+  Building2 
 } from 'lucide-react';
 import type { AssumptionsSummary } from '../types';
 import { api } from '../api';
@@ -197,11 +198,56 @@ export const Assumptions: React.FC = () => {
         </div>
       </div>
 
-      {/* Section 5: Baseline Comparison Simulation Mechanics */}
+      {/* Section 6: Competitor Market Intelligence & 3-Action Framework */}
+      <div className="card">
+        <div className="card-title" style={{ marginBottom: '14px' }}>
+          <Building2 size={18} style={{ color: '#f59e0b' }} />
+          <span>6. Competitor Market Intelligence &amp; 3-Action Decision Framework</span>
+        </div>
+
+        <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+          <p style={{ marginBottom: '10px' }}>
+            FleetYield AI benchmarks operator pricing against comparable market offerings sourced from RedBus and AbhiBus corridors
+            (filtered by origin, destination, departure window &plusmn;3h, and compatible bus category):
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', margin: '14px 0' }}>
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #10b981' }}>
+              <strong style={{ color: '#34d399' }}>Action: Increase fare</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Triggered when demand is High (&gt;70% occupancy) or occupancy is solid and current fare is &gt;5% below competitor median.
+                Captures consumer surplus without sacrificing load factor.
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #f43f5e' }}>
+              <strong style={{ color: '#fb7185' }}>Action: Decrease fare</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Triggered when demand is Low (&lt;30% occupancy) or current fare is &gt;10% above market median in competitive corridors.
+                Incentivizes bookings to recover unutilized seat capacity.
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', borderTop: '3px solid #0284c7' }}>
+              <strong style={{ color: '#38bdf8' }}>Action: Maintain fare</strong>
+              <div style={{ fontSize: '0.78rem', marginTop: '6px' }}>
+                Triggered when demand is Medium (30% &ndash; 70% occupancy) and operator fare is well-aligned with market median (within &plusmn;5%).
+                Preserves stable revenue realization.
+              </div>
+            </div>
+          </div>
+          <p style={{ fontSize: '0.8rem', fontStyle: 'italic', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+            Data Transparency &amp; Non-Disclosure: RedBus (SeatSeller) and AbhiBus APIs require commercial credentials and NDA contracts.
+            In strict compliance with provider policies, default catalog entries are realistic Indian fleet representations tagged as <code>is_simulated = true</code>.
+            Operators can import authenticated rate sheets via CSV import.
+          </p>
+        </div>
+      </div>
+
+      {/* Section 7: Baseline Comparison Simulation Mechanics */}
       <div className="card">
         <div className="card-title" style={{ marginBottom: '14px' }}>
           <HelpCircle size={18} style={{ color: '#38bdf8' }} />
-          <span>5. Fixed-Fare Baseline Comparison Methodology</span>
+          <span>7. Fixed-Fare Baseline Comparison Methodology</span>
         </div>
 
         <div style={{ fontSize: '0.88rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>

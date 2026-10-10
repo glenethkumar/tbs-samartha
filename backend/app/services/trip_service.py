@@ -9,6 +9,7 @@ from app.db import get_connection
 from app.config import settings
 from app.services.validation_service import ValidationService, parse_iso_datetime
 from app.services.demand_classifier import DemandClassifier
+from app.services.competitor_service import CompetitorService
 
 
 def calculate_trip_metrics(trip: Dict[str, Any]) -> Dict[str, Any]:
@@ -68,6 +69,20 @@ class TripService:
                         latest_rec["evidence_quality_details"] = json.loads(latest_rec["evidence_quality_details"])
                     except Exception:
                         pass
+                if "competitor_summary" in latest_rec and isinstance(latest_rec["competitor_summary"], str):
+                    try:
+                        latest_rec["competitor_summary"] = json.loads(latest_rec["competitor_summary"])
+                    except Exception:
+                        latest_rec["competitor_summary"] = {}
+                if not latest_rec.get("recommended_action"):
+                    rf = float(latest_rec.get("recommended_fare", 0.0))
+                    cf = float(latest_rec.get("current_fare_at_generation", trip.get("current_fare", 0.0)))
+                    if rf > cf:
+                        latest_rec["recommended_action"] = "Increase fare"
+                    elif rf < cf:
+                        latest_rec["recommended_action"] = "Decrease fare"
+                    else:
+                        latest_rec["recommended_action"] = "Maintain fare"
 
             # Get decisions for this trip
             cursor.execute(
@@ -149,6 +164,8 @@ class TripService:
         else:
             trip["demand_category"] = "Unknown"
             trip["demand_details"] = None
+
+        trip["competitor_summary"] = CompetitorService.get_competitor_summary(trip_id)
 
         return trip
 

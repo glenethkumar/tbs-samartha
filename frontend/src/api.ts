@@ -100,6 +100,23 @@ export const api = {
 
   getAssumptions: () => fetchApi<AssumptionsSummary>('/assumptions'),
 
+  getTripCompetitors: (tripId: string) =>
+    fetchApi<import('./types').CompetitorPriceSummary>(`/trips/${encodeURIComponent(tripId)}/competitors`),
+
+  importCompetitorCsv: (csvContent: string, isSimulated: boolean = true) =>
+    fetchApi<{ success: boolean; records_imported: number; records_rejected: number; errors: string[]; message: string }>(
+      '/competitor-fares/import-csv',
+      {
+        method: 'POST',
+        body: JSON.stringify({ csv_content: csvContent, is_simulated: isSimulated }),
+      }
+    ),
+
+  resetCompetitorSample: () =>
+    fetchApi<{ message: string; count: number }>('/competitor-fares/reset-sample', {
+      method: 'POST',
+    }),
+
   resetDatabase: () =>
     fetchApi<{ message: string }>('/database/reset', {
       method: 'POST',

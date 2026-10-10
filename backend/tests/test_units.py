@@ -534,3 +534,107 @@ def test_no_arbitrary_ai_confidence_percentages():
         assert term not in rec["explanation"].lower()
         assert term not in rec["evidence_quality_explanation"].lower()
 
+
+# 27. Competitor benchmark summary calculation and median logic
+def test_competitor_summary_calculation():
+    from app.services.competitor_service import CompetitorService
+    summary = CompetitorService.get_competitor_summary("TRIP-BLR-HYD-101")
+    assert summary["sample_size"] >= 3
+    assert summary["median_fare"] is not None
+    assert summary["min_fare"] <= summary["median_fare"] <= summary["max_fare"]
+    assert "RedBus" in summary["platforms_represented"] or "AbhiBus" in summary["platforms_represented"]
+    assert summary["current_fare_diff_vs_median"] is not None
+    assert summary["market_position"] in (
+        "Significantly Below Market", "Moderately Below Market",
+        "Competitive / Par", "Above Market", "Significantly Above Market"
+    )
+
+
+# 28. Pricing policy recommends 'Increase fare' when demand is high and below market
+def test_pricing_policy_competitor_increase_fare():
+    comp_summary = {
+        "sample_size": 4,
+        "median_fare": 950.0,
+        "min_fare": 900.0,
+        "max_fare": 1050.0,
+        "platforms_represented": ["RedBus", "AbhiBus"]
+    }
+    rec = PricingPolicy.calculate_recommendation(
+        base_fare=800.0,
+        current_fare=800.0,
+        min_fare=600.0,
+        max_fare=1200.0,
+        demand_category="High",
+        occupancy_percent=85.0,
+        competitor_summary=comp_summary
+    )
+    assert rec["recommended_action"] == "Increase fare"
+    assert rec["recommended_fare"] > 800.0
+    assert rec["recommended_fare"] <= 1200.0
+    assert "Market Benchmark" in rec["explanation"]
+    assert "₹950" in rec["explanation"]
+
+
+# 29. Pricing policy recommends 'Decrease fare' when demand is low and above market
+def test_pricing_policy_competitor_decrease_fare():
+    comp_summary = {
+        "sample_size": 5,
+        "median_fare": 750.0,
+        "min_fare": 700.0,
+        "max_fare": 820.0,
+        "platforms_represented": ["RedBus", "AbhiBus"]
+    }
+    rec = PricingPolicy.calculate_recommendation(
+        base_fare=850.0,
+        current_fare=850.0,
+        min_fare=600.0,
+        max_fare=1200.0,
+        demand_category="Low",
+        occupancy_percent=20.0,
+        competitor_summary=comp_summary
+    )
+    assert rec["recommended_action"] == "Decrease fare"
+    assert rec["recommended_fare"] < 850.0
+    assert rec["recommended_fare"] >= 600.0
+    assert "Action: Decrease fare" in rec["explanation"]
+
+
+# 30. Pricing policy recommends 'Maintain fare' when demand is medium and price is at par
+def test_pricing_policy_competitor_maintain_fare():
+    comp_summary = {
+        "sample_size": 4,
+        "median_fare": 800.0,
+        "min_fare": 780.0,
+        "max_fare": 820.0,
+        "platforms_represented": ["RedBus", "AbhiBus"]
+    }
+    rec = PricingPolicy.calculate_recommendation(
+        base_fare=800.0,
+        current_fare=800.0,
+        min_fare=600.0,
+        max_fare=1200.0,
+        demand_category="Medium",
+        occupancy_percent=55.0,
+        competitor_summary=comp_summary
+    )
+    assert rec["recommended_action"] == "Maintain fare"
+    assert rec["recommended_fare"] == 800.0
+    assert "Action: Maintain fare" in rec["explanation"]
+
+
+# 31. Competitor CSV import handles valid and invalid rows cleanly
+def test_competitor_csv_import():
+    from app.services.competitor_service import CompetitorService
+    csv_data = (
+        "origin,destination,departure_time,bus_type,operator_name,platform,fare,available_seats,rating\n"
+        "Bengaluru,Hyderabad,2026-10-15T22:00:00Z,AC Sleeper,Test VRL,RedBus,880.0,15,4.5\n"
+        "Bengaluru,Hyderabad,2026-10-15T22:30:00Z,AC Sleeper,Test Orange,AbhiBus,860.0,12,4.3\n"
+        "Bengaluru,Hyderabad,2026-10-15T23:00:00Z,AC Sleeper,Invalid Fares,RedBus,-50.0,10,3.9\n"  # Invalid negative fare
+        ",,2026-10-15T23:00:00Z,AC Sleeper,Missing Origin,RedBus,800.0,10,3.9\n"  # Missing route
+    )
+    res = CompetitorService.import_csv(csv_data, is_simulated=True)
+    assert res["success"] is True
+    assert res["records_imported"] == 2
+    assert res["records_rejected"] == 2
+    assert len(res["errors"]) == 2
+

@@ -93,6 +93,8 @@ def init_db() -> None:
         for col, col_def in [
             ("evidence_quality_status", "TEXT NOT NULL DEFAULT 'Strong data'"),
             ("evidence_quality_details", "TEXT NOT NULL DEFAULT '{}'"),
+            ("recommended_action", "TEXT NOT NULL DEFAULT 'Maintain fare'"),
+            ("competitor_summary", "TEXT NOT NULL DEFAULT '{}'"),
         ]:
             try:
                 cursor.execute(f"ALTER TABLE recommendations ADD COLUMN {col} {col_def}")
@@ -133,6 +135,30 @@ def init_db() -> None:
             );
         """)
 
+        # 6. Competitor fares table (RedBus & AbhiBus benchmark integration)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS competitor_fares (
+                competitor_fare_id TEXT PRIMARY KEY,
+                trip_id TEXT,
+                origin TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                route_name TEXT,
+                departure_time TEXT NOT NULL,
+                bus_type TEXT NOT NULL,
+                operator_name TEXT NOT NULL,
+                platform TEXT NOT NULL, -- 'RedBus' or 'AbhiBus'
+                fare REAL NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'INR',
+                available_seats INTEGER DEFAULT 20,
+                rating REAL DEFAULT 4.2,
+                review_count INTEGER DEFAULT 1200,
+                amenities TEXT DEFAULT '[]', -- JSON string
+                is_simulated INTEGER NOT NULL DEFAULT 1,
+                data_source_label TEXT NOT NULL DEFAULT 'Synthetic competitor data (RedBus & AbhiBus SeatSeller schema)',
+                captured_at TEXT NOT NULL
+            );
+        """)
+
         conn.commit()
 
 
@@ -140,6 +166,7 @@ def reset_and_seed_database() -> None:
     """Drops and re-populates tables with seed data."""
     with get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS competitor_fares;")
         cursor.execute("DROP TABLE IF EXISTS operator_decisions;")
         cursor.execute("DROP TABLE IF EXISTS recommendations;")
         cursor.execute("DROP TABLE IF EXISTS booking_snapshots;")

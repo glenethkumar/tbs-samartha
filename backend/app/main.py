@@ -171,6 +171,34 @@ def get_assumptions():
     return settings.get_assumptions_summary()
 
 
+@app.get("/api/trips/{trip_id}/competitors")
+def get_trip_competitors(trip_id: str):
+    from app.services.competitor_service import CompetitorService
+    summary = CompetitorService.get_competitor_summary(trip_id)
+    return summary
+
+
+@app.post("/api/competitor-fares/import-csv")
+def import_competitor_csv(payload: dict):
+    from app.services.competitor_service import CompetitorService
+    csv_text = payload.get("csv_content", "")
+    is_simulated = payload.get("is_simulated", False)
+    if not csv_text or not csv_text.strip():
+        raise HTTPException(status_code=400, detail="csv_content cannot be empty")
+    result = CompetitorService.import_csv(csv_text, is_simulated=is_simulated)
+    return result
+
+
+@app.post("/api/competitor-fares/reset-sample")
+def reset_competitor_sample():
+    from app.services.competitor_service import CompetitorService
+    count = CompetitorService.seed_sample_competitors()
+    return {
+        "message": f"Successfully re-seeded {count} sample competitor listings across active corridors.",
+        "count": count
+    }
+
+
 @app.post("/api/database/reset")
 def reset_database():
     reset_and_seed_database()

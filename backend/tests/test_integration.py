@@ -27,6 +27,14 @@ def setup_clean_database():
     yield
 
 
+@pytest.fixture
+def client():
+    """Provides a TestClient for FastAPI route testing."""
+    from fastapi.testclient import TestClient
+    from app.main import app
+    return TestClient(app)
+
+
 # 1. Seed data appears on first run
 def test_seed_data_presence():
     trips = TripService.list_trips()
@@ -237,4 +245,41 @@ def test_simulation_invalid_inputs_rejected():
     with pytest.raises(ValueError) as exc2:
         SimulationService.run_simulation(price_elasticity=0.5)
     assert "price_elasticity must be non-positive" in str(exc2.value)
+
+
+# 12. Competitor API endpoint returns market summary and comparable listings
+def test_get_trip_competitors_api(client):
+    res = client.get("/api/trips/TRIP-BLR-HYD-101/competitors")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["sample_size"] >= 3
+    assert data["median_fare"] is not None
+    assert isinstance(data["comparable_competitors"], list)
+    assert len(data["comparable_competitors"]) >= 3
+
+
+# 13. Competitor CSV import API processes uploaded rows
+def test_import_competitor_csv_api(client):
+    csv_payload = {
+        "csv_content": (
+            "origin,destination,departure_time,bus_type,operator_name,platform,fare\n"
+            "Chennai,Bengaluru,2026-10-15T18:00:00Z,AC Sleeper,SRS Travels,RedBus,780.0\n"
+            "Chennai,Bengaluru,2026-10-15T18:30:00Z,AC Sleeper,Parveen Travels,AbhiBus,760.0\n"
+        ),
+        "is_simulated": True
+    }
+    res = client.post("/api/competitor-fares/import-csv", json=csv_payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success"] is True
+    assert data["records_imported"] == 2
+
+
+# 14. Competitor sample reset endpoint re-populates benchmarks
+def test_reset_competitor_sample_api(client):
+    res = client.post("/api/competitor-fares/reset-sample")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["count"] > 0
+    assert "Successfully re-seeded" in data["message"]
 

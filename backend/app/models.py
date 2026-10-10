@@ -61,6 +61,53 @@ class TripResponse(TripBase):
     demand_category: Optional[str] = None
 
 
+class CompetitorFareModel(BaseModel):
+    competitor_fare_id: str
+    trip_id: Optional[str] = None
+    origin: str
+    destination: str
+    route_name: Optional[str] = None
+    departure_time: str
+    bus_type: str
+    operator_name: str
+    platform: str  # "RedBus" | "AbhiBus"
+    fare: float
+    currency: str = "INR"
+    available_seats: int = 20
+    rating: float = 4.2
+    review_count: int = 1200
+    amenities: List[str] = []
+    is_simulated: bool = True
+    data_source_label: str = "Synthetic competitor data (RedBus & AbhiBus SeatSeller schema)"
+    captured_at: str
+
+
+class CompetitorPriceSummary(BaseModel):
+    sample_size: int
+    median_fare: Optional[float] = None
+    min_fare: Optional[float] = None
+    max_fare: Optional[float] = None
+    average_fare: Optional[float] = None
+    cheapest_operator: Optional[str] = None
+    cheapest_platform: Optional[str] = None
+    premium_operator: Optional[str] = None
+    premium_platform: Optional[str] = None
+    current_fare_diff_vs_median: Optional[float] = None
+    current_fare_diff_vs_median_pct: Optional[float] = None
+    market_position: str = "No data"
+    platforms_represented: List[str] = []
+    comparable_competitors: List[CompetitorFareModel] = []
+    matching_criteria: Dict[str, Any] = {}
+
+
+class CompetitorCsvImportResult(BaseModel):
+    success: bool
+    records_imported: int
+    records_rejected: int
+    errors: List[str] = []
+    message: str
+
+
 class RecommendationModel(BaseModel):
     recommendation_id: str
     trip_id: str
@@ -85,6 +132,8 @@ class RecommendationModel(BaseModel):
     notice: str = "Rule-based decision support; does not change passenger-facing live fares."
     evidence_quality_status: Optional[str] = "Strong data"
     evidence_quality_details: Optional[Dict[str, Any]] = None
+    recommended_action: Optional[str] = "Maintain fare"  # "Increase fare", "Decrease fare", "Maintain fare"
+    competitor_summary: Optional[Dict[str, Any]] = None
 
 
 class DecisionCreate(BaseModel):

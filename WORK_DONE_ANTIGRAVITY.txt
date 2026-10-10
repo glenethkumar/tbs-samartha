@@ -557,18 +557,58 @@ Frontend (`frontend/`):
    - Expandable 7-point audit drawer ("Why this recommendation? - Evidence Quality & Pricing Audit") in `TripDetail.tsx`.
    - Comprehensive methodology documentation in Section 5 of System Assumptions (`Assumptions.tsx`).
 
-5. Automated Test Suite Expansion (37/37 Tests Passing):
-   - 8 new unit tests in `test_units.py`:
-     * `test_evidence_quality_strong_data`
-     * `test_evidence_quality_limited_data`
-     * `test_evidence_quality_stale_data`
-     * `test_evidence_quality_departure_in_past`
-     * `test_recommendation_evidence_quality_integration_strong`
-     * `test_recommendation_evidence_quality_integration_limited`
-     * `test_recommendation_evidence_quality_blocked_stale`
-     * `test_recommendation_evidence_quality_blocked_invalid_fares`
-   - Complete regression suite (37 tests total) passed with 100% success rate.
+5. Automated Test Suite Expansion (45/45 Tests Passing):
+   - Unit and integration tests covering:
+     * Occupancy, booking pace, boundary clamping, commercial rounding.
+     * Evidence quality statuses (Strong, Limited, Insufficient).
+     * Competitor median & price spread calculation.
+     * Strategic actions (`Increase fare`, `Decrease fare`, `Maintain fare`).
+     * Competitor CSV file upload validation and synthetic tagging.
+   - Complete regression suite (45 tests total) passed with 100% success rate in 3.6s.
    - Frontend production build (`npm run build`) cleanly compiled with Vite.
+
+================================================================================
+13. COMPETITOR PRICING INTELLIGENCE & 3-ACTION DECISION FRAMEWORK
+================================================================================
+
+1. Problem Solved:
+   - Bus fleet operators cannot price in isolation; ticket demand is heavily influenced by
+     competing offerings on major portals like RedBus and AbhiBus.
+   - Reference implementation studied: `https://github.com/Jeganathan-C/busscanner` (BusScanner).
+   - Analysis revealed RedBus (SeatSeller) and AbhiBus are closed B2B partner APIs requiring
+     commercial agreements and NDA credentials. Direct scraping violates aggregator Terms of Service.
+   - We engineered a clean solution: realistic private fleet listings across 11 key Indian corridors
+     (VRL, SRS, Orange, Parveen, Kallada, KPN) with mandatory `is_simulated = 1` tagging, plus an
+     interactive CSV rate sheet importer allowing operators to upload proprietary market feeds.
+
+2. Backend Innovations (`backend/app/services/competitor_service.py`):
+   - Comparable Matching Engine: Filters competitor records by identical route (origin/destination),
+     departure window (±3 hours), and compatible vehicle category (AC Sleeper, AC Seater, Non-AC).
+   - Market Benchmark Synthesizer: Computes sample size, median fare, min/max spread, average fare,
+     cheapest operator/platform, premium operator/platform, and operator's percentage difference.
+   - 3-Action Strategic Decision Engine:
+     * `Increase fare`: Triggered when demand is High (>70%) or occupancy is solid and current price is
+       >5% below competitor median. Captures consumer surplus while maintaining competitiveness.
+     * `Decrease fare`: Triggered when demand is Low (<30%) or current price is >10% above market median.
+       Stimulates bookings to recover vacant capacity.
+     * `Maintain fare`: Triggered when demand is Medium (30–70%) and price is aligned with market median.
+   - CSV Rate Sheet Parser: Validates headers, parses date formats, checks ranges, rejects invalid fares,
+     and reports precise error diagnostics (`records_imported`, `records_rejected`, `errors`).
+
+3. SQLite Relational Persistence:
+   - Created `competitor_fares` table with foreign key indices and schema constraints.
+   - Added schema migrations to store `recommended_action` and serialized `competitor_summary` in `recommendations`.
+   - Seeded 55 realistic competitor listings across all 11 demo corridors.
+
+4. UI & Operator Experience:
+   - Competitor Price Intelligence Card in `TripDetail.tsx`:
+     * 4-metric overview: Market Median Fare, Operator Position vs Median, Lowest Listing, Premium Listing.
+     * Comparable Competitor Listings Table with RedBus/AbhiBus badges, departure window diff, seats, and ratings.
+     * Prominent Strategic Action Badges (`INCREASE FARE`, `DECREASE FARE`, `MAINTAIN FARE`).
+     * Modal for CSV Rate Sheet upload and sample reset.
+     * 8-Point Explainability Audit drawer detailing competitor benchmark factors.
+   - Action Badges embedded into the main `Trips.tsx` inventory table.
+   - Section 6 added to System Assumptions (`Assumptions.tsx`).
 
 ================================================================================
 END OF REPORT
