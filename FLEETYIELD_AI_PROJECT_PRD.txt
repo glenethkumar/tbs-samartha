@@ -1,0 +1,624 @@
+================================================================================
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+PROJECT: FleetYield AI - TBS FleetOS Dynamic Pricing Decision Support
+================================================================================
+
+Document Title:    FleetYield AI - Comprehensive Product Requirements Document
+Version:           1.0.0 (Production-Ready Prototype Release)
+Date:              October 10, 2026
+System Type:       Operator-in-the-Loop Fleet Yield Management & Pricing Decision Support
+Target Ecosystem:  TheBusStand (TBS FleetOS Intercity Bus Ecosystem)
+Repository:        https://github.com/glenethkumar/tbs-samartha.git
+Author / Engine:   Antigravity Autonomous Engineering Pair
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Executive Summary & Problem Definition
+2. Target Personas & Use Cases
+3. Product Vision & Guiding Principles
+4. Non-Negotiable Governance, Truthfulness & Ethical Safeguards
+5. System Architecture & Tech Stack
+6. Core Functional Requirements & Feature Specifications
+   6.1. Trip & Inventory Management Module
+   6.2. Data Quality & Pre-Flight Validation Engine
+   6.3. Rule-Based Demand Classification Engine
+   6.4. Bounded Dynamic Pricing Policy Engine
+   6.5. Explainable Pricing Confidence & Evidence Quality Framework
+   6.6. Human-in-the-Loop Operator Decision Workflow
+   6.7. Fixed-Fare Baseline vs. Dynamic Yield Simulator
+   6.8. Persistent Audit Logging & Compliance Ledger
+   6.9. System Assumptions & Configuration Management
+7. REST API Endpoints Specification
+8. Database Schema & Entity Relationships
+9. User Experience & UI Layout Requirements
+10. Verification, Automated Testing & Quality Metrics
+11. Assumptions, Known Boundaries & Future Roadmap
+12. Operational Runbook & Local Execution Guide
+
+================================================================================
+1. EXECUTIVE SUMMARY & PROBLEM DEFINITION
+================================================================================
+
+1.1. Context & Industry Background:
+In intercity bus passenger transport in India, thousands of private fleet operators
+compete across fragmented corridors. Most operators manage pricing manually using
+inflexible static fare tables or ad-hoc intuition. As departure approaches:
+  - Off-peak buses travel half-empty (sub-40% occupancy), permanently losing perish-
+    able seat capacity.
+  - High-demand weekend or holiday departures sell out too quickly at base fares,
+    forfeiting commercial yield that could offset operating diesel costs.
+  - Operators distrust automated "black box" revenue management algorithms that
+    propose drastic fare swings, violate route regulatory brackets, or execute
+    unsupervised passenger-facing price changes.
+
+1.2. Product Solution:
+FleetYield AI is a transparent, explainable, human-in-the-loop dynamic yield management
+and decision-support platform designed for TBS FleetOS. The platform combines real-
+time trip occupancy tracking, rule-based demand classification, bounded fare recommen-
+dations, explicit data-evidence quality scoring, and a fixed-fare baseline simulator.
+
+1.3. Key Value Proposition:
+  - Explainable: Every recommended fare explains its inputs, math, rules, and limits.
+  - Air-Gapped & Safe: No fare ever touches passenger ticketing without deliberate
+    operator review, approval, or override.
+  - Strict Bounds: Algorithmic output is mathematically clamped within pre-approved
+    minimum (`min_fare`) and maximum (`max_fare`) boundaries, rounded to ₹10 intervals.
+  - Evidence-Aware: Every recommendation evaluates data freshness and completeness,
+    flagging "Strong", "Limited", or "Insufficient" evidence to prevent algorithmic
+    hallucination on stale or corrupted fixtures.
+  - Benchmark-Grounded: Built-in baseline simulator tests dynamic yield against a fixed
+    fare benchmark across 4 market elasticity scenarios, explicitly flagging when
+    dynamic discounting might underperform static baselines.
+
+================================================================================
+2. TARGET PERSONAS & USE CASES
+================================================================================
+
+2.1. Primary Personas:
+1. Route Revenue Manager / Yield Analyst:
+   - Goal: Optimize occupancy and revenue across high-frequency intercity routes.
+   - Pain Point: Spends hours reviewing spreadsheets; lacks real-time visibility into
+     which buses are lagging in booking velocity.
+   - Workflow: Filters trips by departure date and route; reviews recommendations;
+     examines evidence quality audit details; approves or overrides proposed fares.
+
+2. Operations Dispatcher:
+   - Goal: Maximize load factors on departures leaving in the next 12 to 48 hours.
+   - Pain Point: Needs fast, uncluttered status indicators showing empty buses without
+     complex statistical overhead.
+   - Workflow: Identifies low-demand departures (<30% occupancy); verifies validation
+     alerts; approves off-peak promotional yield fares to accelerate bookings.
+
+3. Fleet Executive / Business Owner:
+   - Goal: Protect brand trust and ensure pricing complies with regulatory guidelines.
+   - Pain Point: Terrified that an algorithm will slash fares below fuel costs or spike
+     fares during emergencies, triggering public backlash.
+   - Workflow: Enforces hard minimum/maximum fare guardrails; reviews historical audit
+     logs; evaluates baseline simulation to verify revenue gain hypotheses.
+
+4. Internal Compliance & Audit Officer:
+   - Goal: Verify fair business practices, non-discriminatory pricing, and decision trails.
+   - Pain Point: Inability to audit why a ticket cost was modified in legacy systems.
+   - Workflow: Queries immutable operator decision logs; reviews rationale strings,
+     before-and-after deltas, and timestamped operator signatures.
+
+================================================================================
+3. PRODUCT VISION & GUIDING PRINCIPLES
+================================================================================
+
+1. Operator Supremacy (Human-in-the-Loop):
+   The algorithm advises; the operator decides. Automated systems stage proposed
+   fares but never publish without human approval.
+
+2. Determinism over Black Boxes:
+   Fares are calculated using transparent, auditable business logic. Every price change
+   can be explained to a passenger or regulator in plain language.
+
+3. Zero Toleration for Fake Data / Phantom Claims:
+   All dashboard cards, charts, and metrics are computed dynamically from real SQLite
+   database rows. No hardcoded metric strings or stubbed placeholder buttons.
+
+4. Defensive Input Validation:
+   Garbage in, safety out. Stale, missing, or inverted input values immediately trigger
+   validation blocks rather than calculating spurious recommendations.
+
+5. Realism in Revenue Simulations:
+   Never promise guaranteed financial windfalls. The simulator accurately models price
+   elasticity, enforces seat limits, and highlights conditions where dynamic pricing
+   loses money compared to a fixed fare.
+
+================================================================================
+4. NON-NEGOTIABLE GOVERNANCE, TRUTHFULNESS & ETHICAL SAFEGUARDS
+================================================================================
+
+4.1. Synthetic Demo Data Disclosure:
+All starter trip fixtures, operator bookings, and route histories provided in the
+default seed database are explicitly labeled as SYNTHETIC DEMO DATA. The system does
+not claim that seed data represents real-world passenger records or live telemetry.
+
+4.2. Rule-Based Transparency:
+The demand classifier and recommendation engine are implemented using deterministic,
+configurable rule policies. The product explicitly disclaims being an unsupervised
+deep-learning or black-box neural model.
+
+4.3. Production Air-Gap:
+This prototype operates as a decision-support environment. Fares approved in the UI
+update the internal database decision state and trip records; they do not alter live
+external passenger-facing booking channels unless connected to production TBS APIs.
+
+4.4. Ethical & Non-Discriminatory Pricing:
+Dynamic adjustments are driven strictly by capacity, time-to-departure, and route
+booking pace. The system strictly forbids individual profiling, behavioral tracking,
+surge gouging during emergencies, or discriminatory demographic parameters.
+
+4.5. Complete Resource Disclosure:
+All third-party libraries, CSS frameworks, icons, and fonts used in the project are
+itemized and documented in `THIRD_PARTY_RESOURCES.md` under open-source licenses.
+
+================================================================================
+5. SYSTEM ARCHITECTURE & TECH STACK
+================================================================================
+
+5.1. High-Level Architecture:
+FleetYield AI is structured as a decoupled, layered full-stack application:
+
+  [ React 18 + TypeScript Frontend (Tailwind CSS, Lucide Icons, Recharts) ]
+                                   │
+                           REST API (JSON)
+                                   ▼
+          [ FastAPI Backend (Python 3.10+, Pydantic v2 Models) ]
+            │                 │                   │
+    [Validation Service] [Demand Classifier] [Pricing Policy]
+            │                 │                   │
+    [Evidence Engine]    [Trip Service]      [Simulation Engine]
+                                   │
+                               SQLAlchemy
+                                   ▼
+             [ SQLite Database (`fleetyield.db` Persistent Storage) ]
+
+5.2. Technology Stack Details:
+- Backend:
+  * Framework: FastAPI (Python 3.10+)
+  * Web Server: Uvicorn ASGI
+  * Database ORM: SQLite3 + SQLAlchemy Core / Raw SQL integration
+  * Data Validation: Pydantic v2 schemas
+  * Testing: Pytest, HTTPX test client
+- Frontend:
+  * Core: React 18.3, TypeScript 5.6
+  * Bundler & Dev Server: Vite 6.0
+  * Styling: Tailwind CSS 3.4 (Custom TailAdmin / Horizon dark navy theme)
+  * Charting: Recharts & Canvas chart components
+  * Icons: Lucide React
+  * State Management: React Hooks (`useState`, `useEffect`, `useCallback`)
+- Storage:
+  * File-based SQLite (`backend/data/fleetyield.db`) ensuring persistence across
+    reboots without cloud database overhead.
+
+================================================================================
+6. CORE FUNCTIONAL REQUIREMENTS & FEATURE SPECIFICATIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1. Trip & Inventory Management Module
+--------------------------------------------------------------------------------
+- Purpose: Provide comprehensive operational visibility into active bus inventory.
+- Features:
+  * Real-time calculation of trip metrics:
+    - `total_capacity` (total seats on bus, e.g., 40, 48, 54).
+    - `seats_booked` (cumulative passenger reservations).
+    - `available_seats = total_capacity - seats_booked`.
+    - `occupancy_pct = (seats_booked / total_capacity) * 100` (rounded to 1 decimal).
+  * Route metadata: Route code, origin, destination, bus type (AC Sleeper, Non-AC
+    Seater, Volvo Multi-Axle, etc.), scheduled departure, scheduled arrival.
+  * Pricing limits: `base_fare`, `current_fare`, `min_fare`, `max_fare`.
+  * Status Lifecycle: Scheduled, In-Progress, Completed, Cancelled.
+  * Search, Filter & Sort:
+    - Filter by origin, destination, bus type, occupancy range, and date.
+    - Sort ascending/descending by departure time, occupancy, and current fare.
+
+--------------------------------------------------------------------------------
+6.2. Data Quality & Pre-Flight Validation Engine (`validation_service.py`)
+--------------------------------------------------------------------------------
+- Purpose: Inspect every trip record before calculating recommendations or running
+  simulations to ensure algorithmic integrity.
+- Verification Rules:
+  * Rule V1 (Seat Consistency): `seats_booked >= 0` AND `seats_booked <= total_capacity`.
+  * Rule V2 (Positive Capacity): `total_capacity > 0`.
+  * Rule V3 (Boundary Integrity): `min_fare > 0`, `max_fare > 0`, `min_fare <= max_fare`.
+  * Rule V4 (Current Fare Validity): `current_fare >= min_fare` AND `current_fare <= max_fare`.
+  * Rule V5 (Data Freshness / Age): `(now - last_updated) <= 120 minutes`. If age
+    exceeds 120 minutes, data is flagged as STALE.
+  * Rule V6 (Chronological Integrity): `departure_time > now` for actionable trips.
+- Error Handling:
+  * When validation fails, system sets `validation_status = 'INVALID'` or `'STALE'`,
+    records specific `validation_errors` array, and blocks automated fare adjustments.
+
+--------------------------------------------------------------------------------
+6.3. Rule-Based Demand Classification Engine (`demand_classifier.py`)
+--------------------------------------------------------------------------------
+- Purpose: Classify passenger demand into discrete, explainable categories.
+- Unified Configurable Thresholds:
+  * LOW Demand: `occupancy_pct < 30.0%`
+    - Rationale: Bus is running severely under capacity. Price reduction needed to
+      accelerate bookings before departure.
+  * MEDIUM Demand: `30.0% <= occupancy_pct <= 70.0%`
+    - Rationale: Standard healthy booking pace. Maintain baseline pricing.
+  * HIGH Demand: `occupancy_pct > 70.0%`
+    - Rationale: Strong booking velocity and high fill rate. Premium yield capture
+      can be applied to remaining scarce seats.
+- Observation Window & Velocity:
+  * Computes booking pace: `bookings_per_hour = recent_bookings / observation_hours`.
+  * Observation Window: Timestamped span `[window_start, window_end]` (default 4.0h).
+  * Time-to-Departure Factor: Captures urgency (`hours_to_departure`).
+
+--------------------------------------------------------------------------------
+6.4. Bounded Dynamic Pricing Policy Engine (`pricing_policy.py`)
+--------------------------------------------------------------------------------
+- Purpose: Calculate proposed fares based on demand category while strictly enforcing
+  safety boundaries and currency rounding.
+- Policy Rules:
+  * Low Demand Adjustment: Base discount of -10% applied to current fare.
+  * Medium Demand Adjustment: 0% adjustment (retain current/base fare).
+  * High Demand Adjustment: Premium surcharge of +15% applied to base fare.
+  * Proximity Multipliers: If departure is < 24 hours away and occupancy remains < 30%,
+    additional promotional step is allowed, subject to minimum boundary.
+- Safety & Boundary Clamping:
+  * `proposed_fare = clamp(calculated_fare, trip.min_fare, trip.max_fare)`.
+  * Nearest ₹10 Rounding: All proposed fares rounded commercially to the nearest 10
+    (e.g., ₹847 -> ₹850, ₹844 -> ₹840) to mirror real intercity cash/online conventions.
+  * Boundary Precedence: If rounded fare falls below `min_fare`, it is clamped up to
+    `min_fare`. If it exceeds `max_fare`, it is clamped down to `max_fare`.
+
+--------------------------------------------------------------------------------
+6.5. Explainable Pricing Confidence & Evidence Quality Framework
+--------------------------------------------------------------------------------
+- Purpose: Provide full visibility into the reliability of the underlying data and
+  the exact step-by-step logic behind each recommendation.
+- Three Evidence Quality Tiers:
+  1. STRONG DATA:
+     * Requirements: All required fields valid, freshness age <= 120 mins, departure
+       in future, observation window >= 2.0 hours.
+     * Confidence Score: 0.90 to 0.95.
+     * Action: Recommendation fully supported for operator review.
+  2. LIMITED DATA:
+     * Requirements: Core inputs valid, but historical booking window is brief (< 2.0h)
+       or velocity data is sparse.
+     * Confidence Score: 0.70.
+     * Action: Computable recommendation, but flagged with a caution banner prompting
+       the operator to verify offline booking patterns.
+  3. INSUFFICIENT DATA:
+     * Requirements: Triggered when critical fields are missing, invalid, data age
+       exceeds 120 minutes, or boundary rules fail.
+     * Confidence Score: 0.00.
+     * Action: Algorithmic pricing is BLOCKED. Recommendation status marked as
+       `BLOCKED`. System safely retains the current fare and displays blocker reasons.
+- 7-Point Explainability Audit Details:
+  Every generated recommendation produces a structured audit record containing:
+  1. Current Occupancy & Threshold Applied (<30% Low, 30-70% Medium, >70% High).
+  2. Booking Pace & Timestamped Observation Window (`window_start`, `window_end`,
+     `window_hours`, `bookings_per_hour`).
+  3. Time Until Departure (`hours_to_departure` and human-readable string).
+  4. Last Successful Data-Update Timestamp & data age in minutes.
+  5. Missing, Stale, Invalid, or Inconsistent Inputs (with detailed issue strings).
+  6. Applied Pricing Rules & Rationale Factors.
+  7. Final Recommended Fare & Strict Boundary Clamping (`min_fare` to `max_fare`).
+
+--------------------------------------------------------------------------------
+6.6. Human-in-the-Loop Operator Decision Workflow (`trip_service.py`, `models.py`)
+--------------------------------------------------------------------------------
+- Purpose: Enforce strict human authorization before any fare modification is adopted.
+- Decision States:
+  * `PENDING`: Staged recommendation awaiting operator review.
+  * `APPROVED`: Operator accepts proposed fare as recommended.
+  * `REJECTED`: Operator dismisses proposed fare; current fare remains unchanged.
+  * `OVERRIDDEN`: Operator manually enters a custom fare (validated against min/max).
+- Workflow Requirements:
+  * Decision Modal in UI with side-by-side comparison (Current Fare, Proposed Fare,
+    Absolute Delta, Percentage Change, Rationale).
+  * Mandatory Operator Note / Reason capture for overrides and rejections.
+  * Prevention of duplicate decisions: Once a recommendation is decided, it cannot
+    be double-approved; a new recommendation cycle must be initiated.
+  * Atomicity: Database transaction updates recommendation state, records an
+    `operator_decisions` entry, and conditionally updates `trips.current_fare`.
+
+--------------------------------------------------------------------------------
+6.7. Fixed-Fare Baseline vs. Dynamic Yield Simulator (`simulation_service.py`)
+--------------------------------------------------------------------------------
+- Purpose: Provide an empirical, non-marketing comparison between static fixed pricing
+  and dynamic pricing across entire fleet schedules.
+- Mathematical Simulation Guarantees:
+  * Identical Initial Conditions: Both scenarios start from identical trip states
+    (`seats_booked`, `base_fare`, `available_seats`).
+  * Integer Booking Clamps: Simulated incremental bookings calculated as
+    `max(0, round(incremental_demand))` and strictly capped by `available_seats`.
+  * Non-Negative Revenue: Under all elasticity inputs, simulated bookings and
+    revenues are mathematically guaranteed >= 0.
+  * Exact Recalculation: Final revenue equals `(initial_seats + simulated_seats) * fare`.
+- 4 Pre-Configured Benchmark Scenarios:
+  1. Balanced Market: Moderate elasticity (Price elasticity of demand = -0.8).
+  2. Inelastic Market (Underperformance Scenario): Price elasticity = -0.2. Highlights
+     case where discounting off-peak seats erodes ticket value without attracting
+     sufficient volume (-1.9% dynamic yield drop).
+  3. Elastic Backlash: High price sensitivity = -1.8. Surge pricing on high-demand
+     trips drives passengers to competitors (-1.5% dynamic revenue drop).
+  4. Peak Holiday Surge: Strong inelastic demand = -0.4 during festival rush. Captures
+     significant legitimate yield lift (+11.1%).
+- Explicit Underperformance Detection:
+  * If `dynamic_total_revenue < fixed_total_revenue`, simulator flags
+    `dynamic_underperforms_baseline = True` and displays an explicit explanatory alert
+    detailing why dynamic adjustments underperformed the static baseline.
+
+--------------------------------------------------------------------------------
+6.8. Persistent Audit Logging & Compliance Ledger (`audit_service.py`)
+--------------------------------------------------------------------------------
+- Purpose: Deliver an immutable audit trail for governance, compliance, and dispute
+  resolution.
+- Audit Log Attributes:
+  * `id`: Unique incremental audit identifier.
+  * `trip_id` & `route_name`: Subject trip and corridor.
+  * `operator_id` & `operator_name`: Identity of deciding officer.
+  * `action`: 'APPROVED', 'REJECTED', 'OVERRIDDEN'.
+  * `previous_fare`: Fare prior to decision.
+  * `new_fare`: Fare adopted as a result of decision.
+  * `fare_delta`: Absolute currency change (`new_fare - previous_fare`).
+  * `reason_notes`: Justification provided by operator.
+  * `created_at`: Exact ISO-8601 UTC timestamp.
+- User Experience:
+  * Searchable table in UI with filtering by action, route, and date range.
+  * Export-ready structure for operational compliance reviews.
+
+--------------------------------------------------------------------------------
+6.9. System Assumptions & Configuration Management (`Assumptions.tsx`, `config.py`)
+--------------------------------------------------------------------------------
+- Purpose: Maintain full transparency of all system parameters and business logic.
+- Disclosed Parameters:
+  * Demand Occupancy Thresholds (Low <30%, Medium 30-70%, High >70%).
+  * Yield Step Adjustments (-10% off-peak, 0% medium, +15% high).
+  * Data Freshness Window (120 minutes maximum age).
+  * Commercial Rounding Granularity (Nearest ₹10).
+  * Elasticity Formulas and Simulation Assumptions.
+  * Explicit Statement of Model Type (Deterministic Rule Policy, not ML).
+
+================================================================================
+7. REST API ENDPOINTS SPECIFICATION
+================================================================================
+
+All endpoints communicate using standard JSON payloads over HTTP:
+
+7.1. Trip & Inventory Endpoints:
+  - `GET /api/trips`
+    * Description: Fetch all trips with real-time occupancy, fares, and current
+      recommendation status.
+    * Query Parameters: `origin`, `destination`, `bus_type`, `status`.
+  - `GET /api/trips/{trip_id}`
+    * Description: Retrieve detailed single trip record with full recommendation,
+      evidence quality audit, and history.
+  - `POST /api/trips`
+    * Description: Create a new trip record in inventory.
+
+7.2. Recommendation Endpoints:
+  - `POST /api/recommendations/generate`
+    * Description: Trigger recommendation generation for a trip or all scheduled trips.
+    * Behavior: Validates inputs, evaluates evidence quality, calculates proposed
+      fare, clamps to bounds, and stages recommendation as `PENDING` or `BLOCKED`.
+  - `GET /api/recommendations`
+    * Description: List all staged recommendations with filters by status.
+
+7.3. Operator Decision & Audit Endpoints:
+  - `POST /api/decisions`
+    * Description: Record operator decision on a staged recommendation.
+    * Payload:
+      {
+        "recommendation_id": 4,
+        "trip_id": 2,
+        "decision": "APPROVED" | "REJECTED" | "OVERRIDDEN",
+        "override_fare": 950.0 (optional, required if OVERRIDDEN),
+        "operator_id": "OP-042",
+        "operator_name": "Senior Dispatcher",
+        "reason": "High weekend travel surge confirmed via terminal counter"
+      }
+    * Response: Updated decision record and updated trip state.
+  - `GET /api/audit-logs`
+    * Description: Retrieve chronological audit ledger of all operator actions.
+    * Query Parameters: `trip_id`, `action`, `limit`, `offset`.
+
+7.4. Simulation & Analytics Endpoints:
+  - `POST /api/simulation/compare`
+    * Description: Execute side-by-side fixed-fare vs. dynamic yield comparison.
+    * Payload:
+      {
+        "scenario": "balanced" | "inelastic" | "elastic_backlash" | "peak_holiday",
+        "elasticity_factor": -0.8
+      }
+    * Response: Aggregate metrics (fixed revenue, dynamic revenue, uplift percentage,
+      underperformance flag, detailed per-trip simulation arrays).
+  - `GET /api/metrics/overview`
+    * Description: Return fleet-wide summary metrics (total buses, average occupancy,
+      pending recommendations, total revenue, yield health).
+  - `GET /api/assumptions`
+    * Description: Return dictionary of all active system thresholds and settings.
+  - `POST /api/data/reset-demo`
+    * Description: Re-seed database with clean synthetic demo dataset.
+
+================================================================================
+8. DATABASE SCHEMA & ENTITY RELATIONSHIPS
+================================================================================
+
+8.1. Table: `trips`
+  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
+  - `route_code`: VARCHAR(20) NOT NULL
+  - `origin`: VARCHAR(100) NOT NULL
+  - `destination`: VARCHAR(100) NOT NULL
+  - `bus_type`: VARCHAR(50) NOT NULL
+  - `departure_time`: DATETIME NOT NULL
+  - `arrival_time`: DATETIME NOT NULL
+  - `total_capacity`: INTEGER NOT NULL (CHECK total_capacity > 0)
+  - `seats_booked`: INTEGER NOT NULL DEFAULT 0 (CHECK seats_booked >= 0)
+  - `base_fare`: REAL NOT NULL (CHECK base_fare > 0)
+  - `current_fare`: REAL NOT NULL (CHECK current_fare > 0)
+  - `min_fare`: REAL NOT NULL (CHECK min_fare > 0)
+  - `max_fare`: REAL NOT NULL (CHECK max_fare >= min_fare)
+  - `status`: VARCHAR(20) DEFAULT 'SCHEDULED'
+  - `evidence_quality_status`: VARCHAR(30) DEFAULT 'Strong data'
+  - `evidence_quality_details`: TEXT (JSON serialized audit dictionary)
+  - `last_updated`: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+8.2. Table: `recommendations`
+  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
+  - `trip_id`: INTEGER NOT NULL (FOREIGN KEY -> trips.id)
+  - `demand_category`: VARCHAR(20) NOT NULL ('LOW', 'MEDIUM', 'HIGH')
+  - `current_fare`: REAL NOT NULL
+  - `proposed_fare`: REAL NOT NULL
+  - `fare_adjustment_pct`: REAL NOT NULL
+  - `confidence_score`: REAL NOT NULL
+  - `rationale`: TEXT NOT NULL
+  - `status`: VARCHAR(20) DEFAULT 'PENDING' ('PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN', 'BLOCKED')
+  - `evidence_quality_status`: VARCHAR(30) NOT NULL DEFAULT 'Strong data'
+  - `evidence_quality_details`: TEXT NOT NULL (JSON serialized 7-point audit dictionary)
+  - `created_at`: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+8.3. Table: `operator_decisions`
+  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
+  - `recommendation_id`: INTEGER NOT NULL (FOREIGN KEY -> recommendations.id)
+  - `trip_id`: INTEGER NOT NULL (FOREIGN KEY -> trips.id)
+  - `operator_id`: VARCHAR(50) NOT NULL
+  - `operator_name`: VARCHAR(100) NOT NULL
+  - `decision`: VARCHAR(20) NOT NULL ('APPROVED', 'REJECTED', 'OVERRIDDEN')
+  - `previous_fare`: REAL NOT NULL
+  - `new_fare`: REAL NOT NULL
+  - `fare_delta`: REAL NOT NULL
+  - `reason_notes`: TEXT
+  - `created_at`: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+8.4. Table: `system_settings`
+  - `id`: INTEGER PRIMARY KEY AUTOINCREMENT
+  - `key`: VARCHAR(50) UNIQUE NOT NULL
+  - `value`: TEXT NOT NULL
+  - `description`: TEXT
+  - `updated_at`: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+================================================================================
+9. USER EXPERIENCE & UI LAYOUT REQUIREMENTS
+================================================================================
+
+9.1. Design Language & Theme:
+  - Theme: TailAdmin / Horizon UI inspired dark navy sidebar (`#0F172A` / `#1E293B`)
+    with clean light slate main content background (`#F8FAFC`).
+  - Typography: Clean sans-serif hierarchy (Inter font family).
+  - Responsive: Full desktop layout with mobile-collapsible sidebar and horizontal
+    scrolling data tables.
+
+9.2. View Layouts:
+  1. Top Navbar:
+     - Project branding: "FleetYield AI | TBS FleetOS".
+     - Real-time demo system badge: "SYNTHETIC DEMO MODE".
+     - Global Reset Demo Data button and system status indicators.
+  2. Sidebar Navigation:
+     - Overview (Dashboard KPIs, Occupancy breakdown, Revenue charts).
+     - Trips (Inventory table, search, filters, inline evidence badges).
+     - Recommendations (Staged proposed fares, decision triggers).
+     - Baseline Comparison (Interactive scenario simulator and elasticity tests).
+     - Audit Log (Immutable decision history and compliance export).
+     - Assumptions (Transparent rule explanations and evidence criteria).
+     - Settings (Configurable thresholds and operational parameters).
+     - About (Project background, PRD alignment, and team attribution).
+  3. Interactive Components:
+     - `TripDetail.tsx`: Slide-over inspector featuring real-time occupancy gauge,
+       fare boundary sliders, and expandable *"Why this recommendation?"* 7-point
+       evidence audit drawer.
+     - `DecisionModal.tsx`: Operator approval modal with real-time numeric delta
+       calculations and validation error guards on manual override inputs.
+
+================================================================================
+10. VERIFICATION, AUTOMATED TESTING & QUALITY METRICS
+================================================================================
+
+10.1. Automated Test Suite Architecture:
+The project maintains a rigorous, zero-mocking regression test suite in `backend/tests/`:
+  - Total Automated Tests: 37 tests (37 passing, 0 failing, 0 skipped).
+  - Test Categories:
+    1. Unit Tests (`test_units.py`):
+       - Pricing policy calculation correctness across Low, Medium, High demand.
+       - Commercial ₹10 rounding rules.
+       - Hard boundary clamps (`min_fare` and `max_fare`).
+       - Rejection of invalid inputs (negative fares, inverted bounds, >100% occupancy).
+       - Simulator integer booking constraints and elasticity edge cases.
+       - Evidence Quality tiers (Strong, Limited, Insufficient, Stale detection).
+    2. Integration Tests (`test_integration.py`):
+       - End-to-end recommendation generation and persistence in SQLite.
+       - Operator approval, rejection, and manual override execution.
+       - Prevention of duplicate decisions on previously resolved recommendations.
+       - Audit log ledger creation and data consistency.
+       - Reset demo database workflow.
+       - API route response contracts and error payloads.
+
+10.2. Frontend Build Verification:
+  - TypeScript Compiler: Checked with strict type declarations (`tsc -b`).
+  - Bundler: Vite 6.0 production bundle compiles cleanly (`dist/`) in < 1 second.
+  - Zero Console Errors: Seamless error handling with friendly fallback banners.
+
+================================================================================
+11. ASSUMPTIONS, KNOWN BOUNDARIES & FUTURE ROADMAP
+================================================================================
+
+11.1. Operational Assumptions:
+  - Synthetic Data: Baseline demo database uses synthetic routes based on popular
+    Indian intercity corridors (e.g., Bengaluru - Hyderabad, Chennai - Coimbatore).
+  - Deterministic Pricing: Algorithmic recommendations are governed by explicit
+    mathematical business policies rather than self-modifying statistical weights.
+  - Single Operator Environment: In prototype mode, operator identity is captured
+    via selection/session input rather than enterprise SSO.
+
+11.2. Known System Boundaries:
+  - The prototype does not execute real-time GPS telemetry ingestion or live bus
+    tracking; location is derived from scheduled route timetables.
+  - Fare changes approved in the dashboard update internal fleet pricing records;
+    distribution to consumer booking channels requires a dedicated GDS/OTA connector.
+
+11.3. Future Roadmap (Phase 4 & Beyond):
+  - Milestone 4.1: Direct Integration with live TBS FleetOS Ticketing APIs.
+  - Milestone 4.2: Historical Machine Learning Demand Model trained on seasonal
+    intercity travel data as a parallel signal alongside deterministic rules.
+  - Milestone 4.3: Multi-tenant RBAC (Role-Based Access Control) with granular
+    approval limits based on operator hierarchy (e.g., supervisors approve >20% deltas).
+  - Milestone 4.4: Competitor Fare Scraper Integration to ingest corridor competitor
+    benchmarks into the evidence quality framework.
+
+================================================================================
+12. OPERATIONAL RUNBOOK & LOCAL EXECUTION GUIDE
+================================================================================
+
+12.1. Prerequisites:
+  - Python 3.10 or higher
+  - Node.js 18.0 or higher with npm
+  - Git
+
+12.2. Backend Setup & Startup:
+  ```powershell
+  cd "backend"
+  python -m venv venv
+  .\venv\Scripts\Activate.ps1
+  pip install -r requirements.txt
+  python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+  ```
+  API Documentation will be accessible at: `http://127.0.0.1:8000/docs`
+
+12.3. Frontend Setup & Startup:
+  ```powershell
+  cd "frontend"
+  npm install
+  npm run dev
+  ```
+  UI will be accessible at: `http://localhost:5173`
+
+12.4. Running Automated Tests:
+  ```powershell
+  cd "backend"
+  pytest -v
+  ```
+  Expected output: 37 passed in ~2.0 seconds.
+
+================================================================================
+END OF FLEETYIELD AI PRODUCT REQUIREMENTS DOCUMENT (PRD)
+================================================================================
