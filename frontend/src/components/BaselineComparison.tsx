@@ -151,12 +151,78 @@ export const BaselineComparison: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Preset Benchmark Scenarios */}
+        <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
+            BENCHMARK TEST SCENARIOS (EXPLORE SENSITIVITIES &amp; DOWNSIDES)
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem' }}
+              onClick={() => {
+                setDemandMultiplier(1.0);
+                setPriceElasticity(-0.5);
+                runSimulation(1.0, -0.5);
+              }}
+            >
+              Balanced Market (1.00x / -0.50)
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem', borderColor: '#f59e0b', color: '#b45309' }}
+              onClick={() => {
+                setDemandMultiplier(1.0);
+                setPriceElasticity(0.0);
+                runSimulation(1.0, 0.0);
+              }}
+            >
+              Inelastic Market (Dynamic Underperforms) (1.00x / 0.00)
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem', borderColor: '#ef4444', color: '#b91c1c' }}
+              onClick={() => {
+                setDemandMultiplier(0.7);
+                setPriceElasticity(-1.8);
+                runSimulation(0.7, -1.8);
+              }}
+            >
+              Elastic Backlash (Price Resistance) (0.70x / -1.80)
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem', borderColor: '#10b981', color: '#047857' }}
+              onClick={() => {
+                setDemandMultiplier(1.5);
+                setPriceElasticity(-0.2);
+                runSimulation(1.5, -0.2);
+              }}
+            >
+              Peak Holiday Surge (1.50x / -0.20)
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
         <div className="notice-box notice-danger">
           <AlertTriangle size={18} />
           <div>{error}</div>
+        </div>
+      )}
+
+      {/* Underperformance Warning Banner if Dynamic Policy Yields Lower Revenue */}
+      {result?.dynamic_underperforms_baseline && (
+        <div className="notice-box notice-warning" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <AlertTriangle size={20} style={{ color: '#d97706' }} />
+          <div>
+            <strong>POLICY UNDERPERFORMANCE OBSERVED:</strong> {result.underperformance_note}
+            <div style={{ fontSize: '0.78rem', marginTop: '4px', color: 'var(--text-dim)' }}>
+              This scenario proves that dynamic pricing is not a guaranteed financial panacea: in price-inelastic conditions, discounting off-peak seats erodes yield without stimulating offsetting volume.
+            </div>
+          </div>
         </div>
       )}
 

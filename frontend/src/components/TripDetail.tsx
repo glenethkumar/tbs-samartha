@@ -462,36 +462,59 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                 {rec.notice}
               </div>
 
-              {/* Operator Decision Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
-                <button
-                  id="btn-reject-recommendation"
-                  className="btn btn-danger"
-                  onClick={() => setDecisionModalType('REJECTED')}
-                >
-                  <X size={16} />
-                  <span>Reject</span>
-                </button>
+              {/* Operator Decision Actions / Status */}
+              {(() => {
+                const existingDecision = trip.decisions?.find((d) => d.recommendation_id === rec.recommendation_id);
+                if (existingDecision) {
+                  const isRej = existingDecision.decision_type === 'REJECTED';
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem' }}>
+                        <CheckCircle2 size={18} style={{ color: isRej ? '#ef4444' : '#10b981' }} />
+                        <span>
+                          Decision recorded: <strong style={{ color: isRej ? '#ef4444' : '#10b981' }}>{existingDecision.decision_type}</strong>
+                          {existingDecision.decision_fare ? ` (₹${existingDecision.decision_fare})` : ''} by <strong>{existingDecision.actor_label}</strong> on {new Date(existingDecision.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(existingDecision.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}).
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        To evaluate new pricing, click <strong>Generate Recommendation</strong> above.
+                      </span>
+                    </div>
+                  );
+                }
 
-                <button
-                  id="btn-override-recommendation"
-                  className="btn btn-secondary"
-                  onClick={() => setDecisionModalType('OVERRIDDEN')}
-                >
-                  <SlidersHorizontal size={16} />
-                  <span>Manual Override</span>
-                </button>
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                    <button
+                      id="btn-reject-recommendation"
+                      className="btn btn-danger"
+                      onClick={() => setDecisionModalType('REJECTED')}
+                    >
+                      <X size={16} />
+                      <span>Reject</span>
+                    </button>
 
-                <button
-                  id="btn-approve-recommendation"
-                  className="btn btn-success"
-                  onClick={handleApprove}
-                  disabled={approving}
-                >
-                  <Check size={16} />
-                  <span>{approving ? 'Recording Approval...' : `Approve Suggested Fare (₹${rec.recommended_fare})`}</span>
-                </button>
-              </div>
+                    <button
+                      id="btn-override-recommendation"
+                      className="btn btn-secondary"
+                      onClick={() => setDecisionModalType('OVERRIDDEN')}
+                    >
+                      <SlidersHorizontal size={16} />
+                      <span>Manual Override</span>
+                    </button>
+
+                    <button
+                      id="btn-approve-recommendation"
+                      className="btn btn-success"
+                      onClick={handleApprove}
+                      disabled={approving}
+                    >
+                      <Check size={16} />
+                      <span>{approving ? 'Recording Approval...' : `Approve Suggested Fare (₹${rec.recommended_fare})`}</span>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )
         ) : (

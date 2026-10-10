@@ -77,6 +77,19 @@ class ValidationService:
             )
             is_valid = False
 
+        # Fare boundary adherence checks
+        if min_fare is not None and max_fare is not None and min_fare <= max_fare:
+            if base_fare is not None and (base_fare < min_fare or base_fare > max_fare):
+                issues.append(
+                    f"Base fare (₹{base_fare}) is outside configured limits [₹{min_fare} - ₹{max_fare}]"
+                )
+                is_valid = False
+            if current_fare is not None and (current_fare < min_fare or current_fare > max_fare):
+                issues.append(
+                    f"Current operating fare (₹{current_fare}) is outside configured limits [₹{min_fare} - ₹{max_fare}]"
+                )
+                is_valid = False
+
         # 4. Departure time validity
         departure_time = trip.get("departure_time")
         if not departure_time:

@@ -210,3 +210,137 @@ def test_simulation_scenario_symmetry():
         # Check occupancy calculations
         assert 0.0 <= row["baseline_occupancy_pct"] <= 100.0
         assert 0.0 <= row["fleetyield_occupancy_pct"] <= 100.0
+
+
+# 13. Zero occupancy handling
+def test_pricing_policy_zero_occupancy():
+    # 0 booked seats out of 40 (0.0% occupancy)
+    dem = DemandClassifier.classify(occupancy_percent=0.0, departure_time="2026-10-15T12:00:00Z")
+    assert dem["demand_category"] == "Low"
+
+    res = PricingPolicy.calculate_recommendation(
+        base_fare=500.0,
+        current_fare=500.0,
+        min_fare=400.0,
+        max_fare=800.0,
+        demand_category=dem["demand_category"],
+        occupancy_percent=0.0
+    )
+    # 500 - 10% = 450 (within 400-800 bounds)
+    assert res["recommended_fare"] == 450.0
+    assert res["fare_difference"] == -50.0
+    assert res["is_clamped"] is False
+
+
+# 14. Full bus handling (100% capacity)
+def test_pricing_policy_full_bus():
+    # 40 booked seats out of 40 (100.0% occupancy)
+    dem = DemandClassifier.classify(occupancy_percent=100.0, departure_time="2026-10-15T12:00:00Z")
+    assert dem["demand_category"] == "High"
+
+    res = PricingPolicy.calculate_recommendation(
+        base_fare=1000.0,
+        current_fare=1000.0,
+        min_fare=800.0,
+        max_fare=1200.0,
+        demand_category=dem["demand_category"],
+        occupancy_percent=100.0
+    )
+    # 1000 + 15% = 1150 (within 800-1200 bounds)
+    assert res["recommended_fare"] == 1150.0
+    assert res["fare_difference"] == 150.0
+    assert res["is_clamped"] is False
+
+
+# 15. Invalid pricing inputs rejected with ValueError
+def test_pricing_policy_invalid_inputs_rejected():
+    # Negative base fare
+    with pytest.raises(ValueError) as exc1:
+        PricingPolicy.calculate_recommendation(
+            base_fare=-500.0,
+            current_fare=500.0,
+            min_fare=400.0,
+            max_fare=800.0,
+            demand_category="Medium",
+            occupancy_percent=50.0
+        )
+    assert "positive numbers" in str(exc1.value)
+
+    # Minimum fare > Maximum fare
+    with pytest.raises(ValueError) as exc2:
+        PricingPolicy.calculate_recommendation(
+            base_fare=500.0,
+            current_fare=500.0,
+            min_fare=900.0,
+            max_fare=600.0,
+            demand_category="Medium",
+            occupancy_percent=50.0
+        )
+    assert "cannot exceed maximum fare" in str(exc2.value)
+
+    # Invalid occupancy percentage
+    with pytest.raises(ValueError) as exc3:
+        PricingPolicy.calculate_recommendation(
+            base_fare=500.0,
+            current_fare=500.0,
+            min_fare=400.0,
+            max_fare=800.0,
+            demand_category="Medium",
+            occupancy_percent=105.0
+        )
+    assert "between 0.0 and 100.0" in str(exc3.value)
+
+
+# 16. Overbooking validation blocks recommendations
+def test_overbooking_validation_blocks():
+    overbooked_trip = {
+        "trip_id": "TRIP-OVERBOOKED-01",
+        "route_name": "Overbooked Express",
+        "total_seats": 35,
+        "booked_seats": 42,  # Over capacity
+        "base_fare": 600.0,
+        "current_fare": 600.0,
+        "min_fare": 500.0,
+        "max_fare": 900.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-10T12:00:00Z"
+    }
+    is_valid, is_stale, can_recommend, issues = ValidationService.validate_trip(overbooked_trip)
+    assert is_valid is False
+    assert can_recommend is False
+    assert any("exceeds total bus capacity" in i for i in issues)
+
+
+# 17. Scenario where dynamic pricing performs worse than fixed-fare baseline
+def test_simulation_dynamic_underperforms_fixed_baseline():
+    # In an inelastic market (elasticity = 0.0), discounting low-demand seats loses revenue without increasing volume
+    res = SimulationService.run_simulation(demand_multiplier=1.0, price_elasticity=0.0)
+    assert res["dynamic_underperforms_baseline"] is True
+    assert res["revenue_difference"] < 0
+    assert res["underperformance_note"] is not None
+    assert "underperformed Fixed-Fare baseline" in res["underperformance_note"]
+
+
+# 18. Simulation consistency and non-negative constraints
+def test_simulation_consistency_and_non_negative():
+    res = SimulationService.run_simulation(demand_multiplier=0.7, price_elasticity=-1.8)
+    assert res["baseline_total_revenue"] >= 0.0
+    assert res["fleetyield_total_revenue"] >= 0.0
+
+    for row in res["trips"]:
+        # Bookings must be integer counts between 0 and total capacity
+        assert isinstance(row["baseline_sold_seats"], int)
+        assert isinstance(row["fleetyield_sold_seats"], int)
+        assert 0 <= row["baseline_sold_seats"] <= row["total_seats"]
+        assert 0 <= row["fleetyield_sold_seats"] <= row["total_seats"]
+
+        # Revenues must be non-negative
+        assert row["baseline_revenue"] >= 0.0
+        assert row["fleetyield_revenue"] >= 0.0
+
+        # Occupancy must match exact booking/capacity calculation
+        expected_occ_base = round((row["baseline_sold_seats"] / row["total_seats"]) * 100.0, 1)
+        expected_occ_fleet = round((row["fleetyield_sold_seats"] / row["total_seats"]) * 100.0, 1)
+        assert row["baseline_occupancy_pct"] == expected_occ_base
+        assert row["fleetyield_occupancy_pct"] == expected_occ_fleet
+

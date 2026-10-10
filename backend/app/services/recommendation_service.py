@@ -94,6 +94,9 @@ class RecommendationService:
             snapshots=trip.get("snapshots", [])
         )
 
+        pace_info = demand_info["contributing_factors"].get("booking_pace")
+        hours_dep = demand_info["contributing_factors"].get("hours_to_departure")
+
         # Step 2: Fare recommendation calculation
         pricing_info = PricingPolicy.calculate_recommendation(
             base_fare=trip["base_fare"],
@@ -102,6 +105,8 @@ class RecommendationService:
             max_fare=trip["max_fare"],
             demand_category=demand_info["demand_category"],
             occupancy_percent=trip["occupancy_percent"],
+            booking_pace_info=pace_info,
+            hours_to_departure=hours_dep,
             trip_id=trip_id
         )
 

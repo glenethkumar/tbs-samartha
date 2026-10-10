@@ -54,6 +54,8 @@ export const TripModal: React.FC<TripModalProps> = ({ trip, onClose, onSaved }) 
     if (isNaN(cFare) || cFare <= 0) return setError('Current fare must be greater than zero');
     if (isNaN(mnFare) || mnFare <= 0) return setError('Minimum fare must be greater than zero');
     if (isNaN(mxFare) || mxFare < mnFare) return setError('Maximum fare must be greater than or equal to minimum fare');
+    if (bFare < mnFare || bFare > mxFare) return setError(`Base fare (₹${bFare}) must be within configured limits [₹${mnFare} - ₹${mxFare}]`);
+    if (cFare < mnFare || cFare > mxFare) return setError(`Current operating fare (₹${cFare}) must be within configured limits [₹${mnFare} - ₹${mxFare}]`);
 
     // Format departure time to ISO 8601 with Z
     const isoDep = new Date(departureTime).toISOString();

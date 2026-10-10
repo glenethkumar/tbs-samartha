@@ -73,9 +73,18 @@ export const Overview: React.FC<OverviewProps> = ({ onSelectTrip, onNavigateTab 
     );
   }
 
-  // Filter trips for chart display
+  // Filter trips for chart display based on departure time windows
+  const nowMs = Date.now();
   const validTrips = trips.filter((t) => t.is_valid);
-  const chartTrips = chartTimeRange === '24h' ? validTrips.slice(0, 5) : chartTimeRange === '7d' ? validTrips.slice(0, 8) : validTrips;
+  const timeFilteredTrips = validTrips.filter((t) => {
+    if (chartTimeRange === 'all') return true;
+    const depMs = new Date(t.departure_time).getTime();
+    const diffHours = (depMs - nowMs) / (1000 * 3600);
+    if (chartTimeRange === '24h') return diffHours >= 0 && diffHours <= 24;
+    if (chartTimeRange === '7d') return diffHours >= 0 && diffHours <= 168;
+    return true;
+  });
+  const chartTrips = timeFilteredTrips.length > 0 ? timeFilteredTrips : validTrips;
 
   // Chart data points
   const points = chartTrips.map((t) => ({

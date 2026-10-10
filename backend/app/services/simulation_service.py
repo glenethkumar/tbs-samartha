@@ -30,6 +30,11 @@ class SimulationService:
         - price_elasticity: demand response coefficient (e.g. -0.5, default -0.5; 0.0 = inelastic)
         - trip_ids: optional list of trips to simulate (defaults to all valid trips)
         """
+        if demand_multiplier < 0.0:
+            raise ValueError(f"demand_multiplier cannot be negative (got {demand_multiplier}).")
+        if price_elasticity > 0.0:
+            raise ValueError(f"price_elasticity must be non-positive <= 0.0 (got {price_elasticity}).")
+
         trips = TripService.list_trips()
         # Filter for valid trips
         valid_trips = [t for t in trips if t["is_valid"] and not t["is_stale"]]
@@ -77,12 +82,12 @@ class SimulationService:
             fleet_fare = pricing_info["recommended_fare"]
 
             # Base prospective unbooked demand seeking seats for this trip
-            base_unmet_demand = round(remaining_seats * demand_multiplier)
+            base_unmet_demand = max(0, round(remaining_seats * max(0.0, demand_multiplier)))
 
             # 1. FIXED-FARE BASELINE POLICY
             # Offered fare is base_fare.
-            realized_additional_baseline = min(remaining_seats, base_unmet_demand)
-            total_sold_baseline = existing_booked + realized_additional_baseline
+            realized_additional_baseline = max(0, min(remaining_seats, base_unmet_demand))
+            total_sold_baseline = min(capacity, existing_booked + realized_additional_baseline)
             rev_baseline = total_sold_baseline * base_fare
             occ_baseline = (total_sold_baseline / capacity) * 100.0 if capacity > 0 else 0.0
 
@@ -92,8 +97,8 @@ class SimulationService:
             # Illustrative elasticity demand factor
             demand_response_factor = max(0.0, 1.0 + (price_elasticity * price_ratio))
             adjusted_unmet_demand = max(0, round(base_unmet_demand * demand_response_factor))
-            realized_additional_fleet = min(remaining_seats, adjusted_unmet_demand)
-            total_sold_fleet = existing_booked + realized_additional_fleet
+            realized_additional_fleet = max(0, min(remaining_seats, adjusted_unmet_demand))
+            total_sold_fleet = min(capacity, existing_booked + realized_additional_fleet)
 
             # Revenue: initial bookings at base fare, additional new bookings at dynamic fare
             rev_fleet = (existing_booked * base_fare) + (realized_additional_fleet * fleet_fare)
@@ -156,14 +161,24 @@ class SimulationService:
             f"Simulated variance is ₹{total_rev_diff:+,.0f} ({total_rev_diff_pct:+.1f}%)."
         )
 
+        underperforms = total_rev_diff < 0
+        underperformance_note = None
+        if underperforms:
+            underperformance_note = (
+                f"Dynamic policy underperformed Fixed-Fare baseline by ₹{abs(total_rev_diff):,.0f} "
+                f"({abs(total_rev_diff_pct):.1f}% decrease). This occurs when market elasticity is insufficient "
+                f"to offset discounted low-demand departures, or when elevated fares cause disproportionate customer drop-off."
+            )
+
         return {
             "notice": "SIMULATED - NOT REAL-WORLD PERFORMANCE. Illustrative decision support scenario under deterministic rules.",
+            "truthfulness_statement": "Hypothetical model output for decision support. Does not prove real-world financial improvement or live passenger willingness to pay.",
             "scenario_parameters": {
                 "demand_multiplier": demand_multiplier,
                 "price_elasticity": price_elasticity,
                 "valid_trips_simulated": len(valid_trips),
                 "elasticity_formula": "Demand_Adj = 1.0 + (price_elasticity * ((P_fleet - P_base) / P_base))",
-                "capacity_constraint": "Realized_Bookings = min(Available_Capacity, Unmet_Demand)"
+                "capacity_constraint": "Realized_Bookings = min(Available_Capacity, max(0, Unmet_Demand))"
             },
             "total_trips_simulated": len(valid_trips),
             "baseline_total_revenue": round(baseline_rev_total, 2),
@@ -177,6 +192,38 @@ class SimulationService:
             "revenue_difference": round(total_rev_diff, 2),
             "revenue_difference_pct": round(total_rev_diff_pct, 1),
             "seats_sold_difference": total_seats_diff,
+            "dynamic_underperforms_baseline": underperforms,
+            "underperformance_note": underperformance_note,
             "assumptions_narrative": narrative,
+            "benchmark_scenarios": [
+                {
+                    "id": "balanced",
+                    "name": "Balanced Market (Default)",
+                    "demand_multiplier": 1.0,
+                    "price_elasticity": -0.5,
+                    "description": "Standard market conditions with moderate customer price responsiveness."
+                },
+                {
+                    "id": "inelastic_underperformance",
+                    "name": "Inelastic Demand (Dynamic Underperforms)",
+                    "demand_multiplier": 1.0,
+                    "price_elasticity": 0.0,
+                    "description": "Inelastic market where discounting off-peak seats generates zero extra volume, resulting in lower revenue than fixed baseline."
+                },
+                {
+                    "id": "elastic_backlash",
+                    "name": "Elastic Pushback (High Price Resistance)",
+                    "demand_multiplier": 0.7,
+                    "price_elasticity": -1.8,
+                    "description": "High price sensitivity causes sharp customer walkaway on premium departures."
+                },
+                {
+                    "id": "peak_holiday",
+                    "name": "Peak Holiday Surge",
+                    "demand_multiplier": 1.5,
+                    "price_elasticity": -0.2,
+                    "description": "High traveler demand with low price resistance."
+                }
+            ],
             "trips": trip_rows
         }

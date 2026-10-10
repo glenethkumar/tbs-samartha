@@ -137,9 +137,9 @@ Synthetic Seed Dataset (`backend/app/seed.py`):
    - Functions Developed:
      * `classify(trip, snapshots)`: Deterministic scoring engine combining:
        - Occupancy Tier:
-         * >80% -> High demand points
-         * 45-80% -> Medium demand points
-         * <45% -> Low demand points
+         * >70.0% -> High Demand
+         * 30.0% - 70.0% -> Medium Demand
+         * <30.0% -> Low Demand
        - Booking Velocity (Pace): Calculates seat booking rate per hour across snapshot history.
        - Departure Horizon Factor: Evaluates days remaining until bus departure.
      * Generates transparent, human-readable rationales and structured contributing factor metadata.
@@ -473,6 +473,47 @@ Frontend (`frontend/`):
           ├── Assumptions.tsx
           ├── Settings.tsx
           └── About.tsx
+
+================================================================================
+11. PRICING ENGINE & BASELINE SIMULATOR ENHANCEMENTS (PHASE 2)
+================================================================================
+
+1. Documented, Unified Demand Thresholds:
+   - Preserved one central configuration across backend (`config.py`), UI (`Assumptions.tsx`, `Settings.tsx`), documentation, and automated tests:
+     * Low Demand: < 30.0% occupancy (-10% fare adjustment)
+     * Medium Demand: 30.0% - 70.0% occupancy (0% baseline retention)
+     * High Demand: > 70.0% occupancy (+15% premium yield adjustment)
+
+2. Strict Pricing Policy Input Validation:
+   - Added validation in `PricingPolicy.calculate_recommendation`:
+     * Rejects non-positive fares (`base_fare <= 0`, `current_fare <= 0`, `min_fare <= 0`, `max_fare <= 0`).
+     * Rejects inverted boundaries (`min_fare > max_fare`).
+     * Rejects base or current fares outside `[min_fare, max_fare]`.
+     * Rejects invalid occupancy percentages (`occupancy < 0` or `occupancy > 100`).
+     * Rejects unrecognized demand categories.
+   - Enforced nearest ₹10 commercial rounding while strictly respecting `[min_fare, max_fare]` clamping bounds.
+
+3. Complete Recommendation Isolation:
+   - Recommendation generation (`/api/recommendations/generate`) only calculates and stages proposed fares.
+   - External fare publication and operational adoption strictly requires explicit operator approval (`/api/decisions`), maintaining complete separation of concerns.
+
+4. Baseline Simulator Mathematical Guarantees:
+   - Identical initial trip conditions for both Fixed-Fare and Dynamic Pricing scenarios.
+   - Non-negative integer simulated bookings: `max(0, round(...))` strictly bounded by `trip.available_seats`.
+   - Guaranteed non-negative bookings and revenues under all market elasticities.
+   - Exact recalculation of occupancy and revenue from final simulated bookings.
+   - Explicit Underperformance Detection:
+     * Discloses `dynamic_underperforms_baseline` flag and explanation when dynamic pricing underperforms the fixed baseline (e.g., Inelastic Market where discounting off-peak seats erodes revenue without volume gain).
+   - Truthfulness disclaimer: Model labeled strictly as decision-support simulation, never asserting that simulated models prove real-world financial gain.
+   - 4 Pre-configured Benchmark Scenario Presets:
+     * Balanced Market (Normal Elasticity)
+     * Inelastic Market (Underperformance Scenario: -1.9% dynamic revenue drop)
+     * Elastic Backlash (High Price Sensitivity: -1.5% dynamic revenue drop)
+     * Peak Holiday Surge (Strong Inelastic Demand: +11.1% dynamic yield lift)
+
+5. Comprehensive Automated Test Suite (29/29 Passing):
+   - Unit tests covering fare boundaries, currency rounding, overbooking prevention, zero occupancy, full buses (100%), invalid inputs, and dynamic underperformance.
+   - Integration tests covering persistence, audit logs, duplicate decision prevention, stale fixture blocks, and API workflows.
 
 ================================================================================
 END OF REPORT

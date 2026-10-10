@@ -142,6 +142,16 @@ export interface SimulationResult {
   revenue_difference_pct: number;
   seats_sold_difference: number;
   assumptions_narrative: string;
+  dynamic_underperforms_baseline?: boolean;
+  underperformance_note?: string | null;
+  truthfulness_statement?: string;
+  benchmark_scenarios?: Array<{
+    id: string;
+    name: string;
+    demand_multiplier: number;
+    price_elasticity: number;
+    description: string;
+  }>;
   trips: SimulationTripRow[];
 }
 

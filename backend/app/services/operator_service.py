@@ -34,6 +34,12 @@ class OperatorService:
         if dtype not in ("APPROVED", "REJECTED", "OVERRIDDEN"):
             raise ValueError(f"Invalid decision type '{decision_type}'. Must be APPROVED, REJECTED, or OVERRIDDEN.")
 
+        if recommendation_id.startswith("REC-BLOCKED-"):
+            raise ValueError(
+                "Cannot record an operator decision on a withheld/blocked recommendation. "
+                "Resolve trip validation issues first."
+            )
+
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -44,6 +50,19 @@ class OperatorService:
             if not rec_row:
                 raise KeyError(f"Recommendation '{recommendation_id}' not found.")
             rec = dict(rec_row)
+
+            # Prevent duplicate decision submissions for the same recommendation
+            cursor.execute(
+                "SELECT * FROM operator_decisions WHERE recommendation_id = ?",
+                (recommendation_id,)
+            )
+            existing_decision = cursor.fetchone()
+            if existing_decision:
+                prev_type = existing_decision["decision_type"]
+                raise ValueError(
+                    f"A decision ({prev_type}) has already been recorded for recommendation '{recommendation_id}'. "
+                    f"Please generate a new recommendation to submit another decision."
+                )
 
             trip_id = rec["trip_id"]
             cursor.execute("SELECT * FROM trips WHERE trip_id = ?", (trip_id,))

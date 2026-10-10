@@ -181,3 +181,60 @@ def test_baseline_comparison_dynamic_recalculation():
     assert run2["baseline_total_revenue"] >= run1["baseline_total_revenue"]
     assert run1["scenario_parameters"]["demand_multiplier"] == 1.0
     assert run2["scenario_parameters"]["demand_multiplier"] == 1.8
+
+
+# 9. Duplicate decision submissions on the same recommendation are rejected
+def test_duplicate_decision_rejected():
+    trip_id = "TRIP-BLR-HYD-101"
+    rec = RecommendationService.generate_recommendation(trip_id)
+    rec_id = rec["recommendation_id"]
+
+    # First decision succeeds
+    res1 = OperatorService.record_decision(
+        recommendation_id=rec_id,
+        decision_type="APPROVED"
+    )
+    assert res1["decision_type"] == "APPROVED"
+
+    # Second decision on the exact same recommendation must be rejected
+    with pytest.raises(ValueError) as exc:
+        OperatorService.record_decision(
+            recommendation_id=rec_id,
+            decision_type="APPROVED"
+        )
+    assert "already been recorded" in str(exc.value)
+
+
+# 10. Current fare or base fare outside configured bounds fails validation
+def test_fare_outside_configured_bounds_fails_validation():
+    from app.services.validation_service import ValidationService
+
+    # Current fare exceeds max_fare
+    trip_high_fare = {
+        "trip_id": "TRIP-TEST-001",
+        "route_name": "Test Route",
+        "total_seats": 40,
+        "booked_seats": 10,
+        "base_fare": 500.0,
+        "current_fare": 1500.0,  # Exceeds max 1000
+        "min_fare": 400.0,
+        "max_fare": 1000.0,
+        "departure_time": "2026-10-15T12:00:00Z",
+        "data_updated_at": "2026-10-10T12:00:00Z"
+    }
+    is_valid, _, can_rec, issues = ValidationService.validate_trip(trip_high_fare)
+    assert is_valid is False
+    assert can_rec is False
+    assert any("outside configured limits" in issue for issue in issues)
+
+
+# 11. Simulation rejects negative demand multiplier or positive elasticity
+def test_simulation_invalid_inputs_rejected():
+    with pytest.raises(ValueError) as exc1:
+        SimulationService.run_simulation(demand_multiplier=-0.5)
+    assert "demand_multiplier cannot be negative" in str(exc1.value)
+
+    with pytest.raises(ValueError) as exc2:
+        SimulationService.run_simulation(price_elasticity=0.5)
+    assert "price_elasticity must be non-positive" in str(exc2.value)
+
