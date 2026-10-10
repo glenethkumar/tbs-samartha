@@ -94,10 +94,82 @@ def test_category_demand_and_velocity():
     assert analysis["confidence_score"] in ("Data-backed estimate", "Heuristic estimate")
 
     cats = analysis["categories"]
-    assert "lower_sleeper" in cats
-    assert "upper_sleeper" in cats
-    assert cats["lower_sleeper"]["total_seats"] > 0
-    assert cats["upper_sleeper"]["total_seats"] > 0
+    # Single and Sharing sleeper categories are distinct
+    assert "single_lower_sleeper" in cats
+    assert "sharing_lower_sleeper" in cats
+    assert "single_upper_sleeper" in cats
+    assert "sharing_upper_sleeper" in cats
+    assert cats["single_lower_sleeper"]["total_seats"] > 0
+    assert cats["sharing_lower_sleeper"]["total_seats"] > 0
+
+
+# 4b. Single Private vs Sharing Sleeper Attribute Separation
+def test_single_private_vs_sharing_sleeper_attributes():
+    trip_id = "TRIP-BLR-HYD-101"
+    seats = SeatDemandService.get_trip_seats(trip_id)
+    
+    single_sleepers = [s for s in seats if s["sleeper_arrangement"] == "single"]
+    sharing_sleepers = [s for s in seats if s["sleeper_arrangement"] == "sharing"]
+    
+    assert len(single_sleepers) > 0
+    assert len(sharing_sleepers) > 0
+    
+    # Single sleepers have max_occupants 1 and private privacy level
+    for s in single_sleepers:
+        assert s["max_occupants"] == 1
+        assert s["privacy_level"] == "private"
+        
+    # Sharing sleepers have max_occupants 2 and semi_private privacy level
+    for s in sharing_sleepers:
+        assert s["max_occupants"] == 2
+        assert s["privacy_level"] == "semi_private"
+
+    # In recommendation policy, single private sleepers are distinct
+    recs = SeatPricingPolicy.calculate_seat_recommendations(trip_id)
+    single_recs = [r for r in recs if "single" in r["category_key"]]
+    sharing_recs = [r for r in recs if "sharing" in r["category_key"]]
+    assert len(single_recs) > 0
+    assert len(sharing_recs) > 0
+
+
+# 4c. Journey Timing and Speed Pricing Factor
+def test_journey_timing_and_speed_pricing():
+    # TRIP-BLR-HYD-101 is an Express service (7.0h, 1 stop)
+    recs = SeatPricingPolicy.calculate_seat_recommendations("TRIP-BLR-HYD-101")
+    avail_recs = [r for r in recs if r["recommended_action"] != "Locked (Booked)"]
+    assert len(avail_recs) > 0
+    
+    # Timing factor should be recorded
+    for r in avail_recs:
+        assert "timing_factor_pct" in r
+        assert "quality_factor_pct" in r
+        assert "arrangement_factor_pct" in r
+        assert "break_even_impact" in r
+
+
+# 4d. Ratings & Review Count Guardrail (Sparse Reviews Withhold Premium)
+def test_sparse_reviews_withhold_quality_premium():
+    trip_id = "TRIP-BLR-HYD-101"
+    # Temporarily set review_count to < 50
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE trips SET review_count = 25 WHERE trip_id = ?;", (trip_id,))
+        conn.commit()
+
+    try:
+        recs = SeatPricingPolicy.calculate_seat_recommendations(trip_id)
+        avail_recs = [r for r in recs if r["recommended_action"] != "Locked (Booked)"]
+        for r in avail_recs:
+            # Quality factor must be 0% when reviews < 50
+            assert r["quality_factor_pct"] == 0.0
+            assert any("low review volume" in w.lower() for w in r["warnings"])
+    finally:
+        # Restore review count
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE trips SET review_count = 1450 WHERE trip_id = ?;", (trip_id,))
+            conn.commit()
+
 
 
 # 5. Operating Expense Accounting & Financial Simulation

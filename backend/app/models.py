@@ -29,6 +29,23 @@ class TripBase(BaseModel):
     bus_type: Optional[str] = "AC Seater"
     route_distance_km: Optional[float] = None
     operator_notes: Optional[str] = None
+    # Journey timing attributes
+    scheduled_arrival_time: Optional[str] = None
+    estimated_duration_hours: Optional[float] = None
+    expected_arrival_time: Optional[str] = None
+    actual_arrival_time: Optional[str] = None
+    stop_count: Optional[int] = 2
+    service_category: Optional[str] = "regular"  # "express" | "limited_stop" | "regular"
+    arrival_convenience_label: Optional[str] = None
+    # Bus ratings and quality
+    average_rating: Optional[float] = 4.2
+    review_count: Optional[int] = 1200
+    rating_source: Optional[str] = "Consolidated (RedBus & AbhiBus)"
+    rating_updated_at: Optional[str] = None
+    amenities: List[str] = []
+    on_time_performance_pct: Optional[float] = 92.0
+    cancellation_rate_pct: Optional[float] = 1.5
+    service_quality_score: Optional[float] = 4.3
 
 
 class TripCreate(TripBase):
@@ -50,6 +67,12 @@ class TripUpdate(BaseModel):
     bus_type: Optional[str] = None
     route_distance_km: Optional[float] = None
     operator_notes: Optional[str] = None
+    scheduled_arrival_time: Optional[str] = None
+    estimated_duration_hours: Optional[float] = None
+    stop_count: Optional[int] = None
+    service_category: Optional[str] = None
+    average_rating: Optional[float] = None
+    amenities: Optional[List[str]] = None
 
 
 class TripResponse(TripBase):
@@ -77,6 +100,16 @@ class CompetitorFareModel(BaseModel):
     rating: float = 4.2
     review_count: int = 1200
     amenities: List[str] = []
+    # Journey timing & comparable matching
+    journey_duration_hours: Optional[float] = None
+    scheduled_arrival_time: Optional[str] = None
+    service_category: str = "regular"
+    seat_type: str = "sleeper"
+    berth_type: str = "lower"
+    sleeper_arrangement: str = "single"  # "single" | "sharing" | "none"
+    seat_position: str = "middle"
+    additional_fees: float = 0.0
+    comparability_notes: Optional[str] = None
     is_simulated: bool = True
     data_source_label: str = "Synthetic competitor data (RedBus & AbhiBus SeatSeller schema)"
     captured_at: str
@@ -101,6 +134,8 @@ class CompetitorPriceSummary(BaseModel):
     conclusion_action: Optional[str] = None  # "Increase fare", "Decrease fare", "Maintain fare"
     conclusion_headline: Optional[str] = None
     conclusion_reason: Optional[str] = None
+    comparability_warnings: List[str] = []
+    category_benchmarks: Dict[str, Any] = {}
 
 
 class CompetitorCsvImportResult(BaseModel):
@@ -239,6 +274,11 @@ class TripSeatModel(BaseModel):
     position: str  # 'front', 'middle', 'back'
     seat_type: str  # 'sitting', 'sleeper', 'semi-sleeper'
     berth_type: str = "none"  # 'lower', 'upper', 'none'
+    sleeper_arrangement: str = "none"  # 'single', 'sharing', 'none'
+    max_occupants: int = 1
+    privacy_level: str = "standard"  # 'private', 'semi_private', 'standard'
+    is_ac: int = 1
+    bus_category: str = "Sleeper"
     base_fare: float
     current_fare: float
     min_fare: float
@@ -286,6 +326,12 @@ class SeatRecommendationModel(BaseModel):
     decision_status: str = "PENDING"  # 'PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN'
     approved_fare: Optional[float] = None
     created_at: str
+    # Factor breakdown
+    sleeper_arrangement: str = "none"
+    timing_factor_pct: float = 0.0
+    quality_factor_pct: float = 0.0
+    arrangement_factor_pct: float = 0.0
+    break_even_impact: Optional[str] = ""
 
 
 class SeatDecisionCreate(BaseModel):

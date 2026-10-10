@@ -243,13 +243,38 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                 {trip.demand_category} Demand
               </span>
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', gap: '12px', marginTop: '4px' }}>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
               <span>ID: <strong>{trip.trip_id}</strong></span>
               <span>&bull;</span>
-              <span>Bus Type: <strong>{trip.bus_type}</strong></span>
+              <span>Bus: <strong>{trip.bus_type}</strong></span>
+              <span>&bull;</span>
+              <span>Category: <strong style={{ color: trip.service_category === 'express' ? '#38bdf8' : '#e2e8f0', textTransform: 'capitalize' }}>{trip.service_category || 'regular'}</strong></span>
+              <span>&bull;</span>
+              <span>Duration: <strong>{trip.estimated_duration_hours ? `${trip.estimated_duration_hours}h` : 'N/A'}</strong> ({trip.stop_count !== undefined ? `${trip.stop_count} stops` : 'Direct'})</span>
               <span>&bull;</span>
               <span>Distance: <strong>{trip.route_distance_km ? `${trip.route_distance_km} km` : 'N/A'}</strong></span>
+              {trip.average_rating && (
+                <>
+                  <span>&bull;</span>
+                  <span style={{ color: '#fbbf24', fontWeight: 600 }}>
+                    ★ {trip.average_rating.toFixed(1)} ({trip.review_count?.toLocaleString()} reviews)
+                  </span>
+                </>
+              )}
+              {trip.on_time_performance_pct && (
+                <>
+                  <span>&bull;</span>
+                  <span style={{ color: '#34d399', fontWeight: 600 }}>
+                    {trip.on_time_performance_pct}% On-Time
+                  </span>
+                </>
+              )}
             </div>
+            {trip.arrival_convenience_label && (
+              <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: '4px', fontStyle: 'italic' }}>
+                Arrival Window: {trip.arrival_convenience_label} &bull; Expected Arrival: {trip.expected_arrival_time || 'On schedule'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -351,6 +376,7 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         seatData ? (
           <SeatMap
             tripId={tripId}
+            trip={trip}
             seatData={seatData}
             financials={financials}
             onRefresh={fetchTripDetails}

@@ -15,6 +15,9 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
     def dep_time(hours_ahead: int) -> str:
         return (now + timedelta(hours=hours_ahead)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    def arr_time(hours_ahead: int, duration_hours: float) -> str:
+        return (now + timedelta(hours=hours_ahead + duration_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
     def updated_time(hours_ago: int) -> str:
         return (now - timedelta(hours=hours_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -35,7 +38,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Multi-Axle AC Sleeper",
             "route_distance_km": 570.0,
-            "operator_notes": "Early morning intercity route. Steady weekend booking curve expected."
+            "operator_notes": "Early morning intercity route. Steady weekend booking curve expected.",
+            "scheduled_arrival_time": arr_time(14, 8.5),
+            "estimated_duration_hours": 8.5,
+            "expected_arrival_time": arr_time(14, 8.5),
+            "actual_arrival_time": None,
+            "stop_count": 2,
+            "service_category": "express",
+            "arrival_convenience_label": "Convenient Morning (06:30)",
+            "average_rating": 4.5,
+            "review_count": 1450,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(12),
+            "amenities": '["AC", "WiFi", "USB Charging", "Reading Light", "Blanket", "Water Bottle"]',
+            "on_time_performance_pct": 94.2,
+            "cancellation_rate_pct": 0.8,
+            "service_quality_score": 4.6
         },
         {
             "trip_id": "TRIP-HYD-VJA-202",
@@ -53,7 +71,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "AC Seater 2+2",
             "route_distance_km": 275.0,
-            "operator_notes": "Regular corridor trip. Balanced demand pattern."
+            "operator_notes": "Regular corridor trip. Balanced demand pattern.",
+            "scheduled_arrival_time": arr_time(8, 5.0),
+            "estimated_duration_hours": 5.0,
+            "expected_arrival_time": arr_time(8, 5.0),
+            "actual_arrival_time": None,
+            "stop_count": 4,
+            "service_category": "limited_stop",
+            "arrival_convenience_label": "Afternoon Arrival (14:30)",
+            "average_rating": 4.1,
+            "review_count": 920,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(24),
+            "amenities": '["AC", "USB Charging", "Water Bottle"]',
+            "on_time_performance_pct": 90.5,
+            "cancellation_rate_pct": 1.8,
+            "service_quality_score": 4.1
         },
         {
             "trip_id": "TRIP-MAA-BLR-303",
@@ -71,7 +104,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Volvo AC Semi-Sleeper",
             "route_distance_km": 350.0,
-            "operator_notes": "Heavy commuter route. Approaching full capacity."
+            "operator_notes": "Heavy commuter route. Approaching full capacity.",
+            "scheduled_arrival_time": arr_time(6, 6.0),
+            "estimated_duration_hours": 6.0,
+            "expected_arrival_time": arr_time(6, 6.0),
+            "actual_arrival_time": None,
+            "stop_count": 2,
+            "service_category": "express",
+            "arrival_convenience_label": "Evening Prime (19:30)",
+            "average_rating": 4.6,
+            "review_count": 2100,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(6),
+            "amenities": '["AC", "WiFi", "Charging Port", "Water Bottle"]',
+            "on_time_performance_pct": 96.0,
+            "cancellation_rate_pct": 0.5,
+            "service_quality_score": 4.7
         },
         {
             "trip_id": "TRIP-MUM-PUN-404",
@@ -89,7 +137,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Mercedes AC 2+2",
             "route_distance_km": 150.0,
-            "operator_notes": "Equipped with timestamped booking snapshot history."
+            "operator_notes": "Equipped with timestamped booking snapshot history.",
+            "scheduled_arrival_time": arr_time(4, 3.5),
+            "estimated_duration_hours": 3.5,
+            "expected_arrival_time": arr_time(4, 3.5),
+            "actual_arrival_time": None,
+            "stop_count": 1,
+            "service_category": "express",
+            "arrival_convenience_label": "Midday Arrival (12:00)",
+            "average_rating": 4.4,
+            "review_count": 1680,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(10),
+            "amenities": '["AC", "Live Tracking", "WiFi"]',
+            "on_time_performance_pct": 95.0,
+            "cancellation_rate_pct": 0.6,
+            "service_quality_score": 4.5
         },
         {
             "trip_id": "TRIP-DEL-JAI-505",
@@ -107,7 +170,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Scania AC Seater",
             "route_distance_km": 280.0,
-            "operator_notes": "Mid-week departure. Sluggish early pickup."
+            "operator_notes": "Mid-week departure. Sluggish early pickup.",
+            "scheduled_arrival_time": arr_time(18, 5.5),
+            "estimated_duration_hours": 5.5,
+            "expected_arrival_time": arr_time(18, 5.5),
+            "actual_arrival_time": None,
+            "stop_count": 3,
+            "service_category": "regular",
+            "arrival_convenience_label": "Night Arrival (22:30)",
+            "average_rating": 4.0,
+            "review_count": 620,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(18),
+            "amenities": '["AC", "Charging Port"]',
+            "on_time_performance_pct": 88.0,
+            "cancellation_rate_pct": 2.5,
+            "service_quality_score": 3.9
         },
         {
             "trip_id": "TRIP-COK-BLR-606",
@@ -125,7 +203,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "AC Sleeper 2+1",
             "route_distance_km": 540.0,
-            "operator_notes": "Long-distance overnight service."
+            "operator_notes": "Long-distance overnight service.",
+            "scheduled_arrival_time": arr_time(22, 9.5),
+            "estimated_duration_hours": 9.5,
+            "expected_arrival_time": arr_time(22, 9.5),
+            "actual_arrival_time": None,
+            "stop_count": 3,
+            "service_category": "express",
+            "arrival_convenience_label": "Morning Arrival (07:00)",
+            "average_rating": 4.3,
+            "review_count": 1180,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(8),
+            "amenities": '["AC", "Blanket", "Pillow", "Charging Port", "Water Bottle"]',
+            "on_time_performance_pct": 92.5,
+            "cancellation_rate_pct": 1.2,
+            "service_quality_score": 4.3
         },
         {
             "trip_id": "TRIP-PUN-GOA-707",
@@ -143,7 +236,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Luxury Sleeper",
             "route_distance_km": 460.0,
-            "operator_notes": "Popular leisure corridor near sell-out."
+            "operator_notes": "Popular leisure corridor near sell-out.",
+            "scheduled_arrival_time": arr_time(10, 9.0),
+            "estimated_duration_hours": 9.0,
+            "expected_arrival_time": arr_time(10, 9.0),
+            "actual_arrival_time": None,
+            "stop_count": 2,
+            "service_category": "express",
+            "arrival_convenience_label": "Morning Coastal Arrival (07:30)",
+            "average_rating": 4.7,
+            "review_count": 1890,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(4),
+            "amenities": '["AC", "WiFi", "Blanket", "Snack Box", "Charging Port", "Reading Light"]',
+            "on_time_performance_pct": 97.0,
+            "cancellation_rate_pct": 0.4,
+            "service_quality_score": 4.8
         },
         {
             "trip_id": "TRIP-KOL-DGH-808",
@@ -161,7 +269,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "Non-AC Deluxe",
             "route_distance_km": 185.0,
-            "operator_notes": "Short excursion route with seasonal swings."
+            "operator_notes": "Short excursion route with seasonal swings.",
+            "scheduled_arrival_time": arr_time(16, 4.5),
+            "estimated_duration_hours": 4.5,
+            "expected_arrival_time": arr_time(16, 4.5),
+            "actual_arrival_time": None,
+            "stop_count": 6,
+            "service_category": "regular",
+            "arrival_convenience_label": "Evening Arrival (18:00)",
+            "average_rating": 3.7,
+            "review_count": 410,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(30),
+            "amenities": '["Comfort Seats", "Luggage Rack"]',
+            "on_time_performance_pct": 84.0,
+            "cancellation_rate_pct": 3.2,
+            "service_quality_score": 3.6
         },
         {
             "trip_id": "TRIP-CLAMP-850",
@@ -179,7 +302,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data",
             "bus_type": "AC Seater",
             "route_distance_km": 460.0,
-            "operator_notes": "Demonstrates fare floor limit clamping."
+            "operator_notes": "Demonstrates fare floor limit clamping.",
+            "scheduled_arrival_time": arr_time(12, 7.5),
+            "estimated_duration_hours": 7.5,
+            "expected_arrival_time": arr_time(12, 7.5),
+            "actual_arrival_time": None,
+            "stop_count": 4,
+            "service_category": "limited_stop",
+            "arrival_convenience_label": "Afternoon Arrival (15:00)",
+            "average_rating": 4.2,
+            "review_count": 840,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(14),
+            "amenities": '["AC", "Charging Port", "Water Bottle"]',
+            "on_time_performance_pct": 91.0,
+            "cancellation_rate_pct": 1.4,
+            "service_quality_score": 4.2
         },
         {
             "trip_id": "TRIP-STALE-901",
@@ -197,7 +335,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data (STALE FIXTURE)",
             "bus_type": "Multi-Axle AC Semi-Sleeper",
             "route_distance_km": 350.0,
-            "operator_notes": "Intentional stale-data test fixture to demonstrate freshness validation warnings."
+            "operator_notes": "Intentional stale-data test fixture to demonstrate freshness validation warnings.",
+            "scheduled_arrival_time": arr_time(20, 7.0),
+            "estimated_duration_hours": 7.0,
+            "expected_arrival_time": arr_time(20, 7.0),
+            "actual_arrival_time": None,
+            "stop_count": 4,
+            "service_category": "regular",
+            "arrival_convenience_label": "Late Night (01:00)",
+            "average_rating": 3.9,
+            "review_count": 320,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(48),
+            "amenities": '["AC", "Charging Port"]',
+            "on_time_performance_pct": 86.0,
+            "cancellation_rate_pct": 2.1,
+            "service_quality_score": 3.8
         },
         {
             "trip_id": "TRIP-INVALID-902",
@@ -215,7 +368,22 @@ def generate_seed_trips() -> List[Dict[str, Any]]:
             "data_source_label": "Synthetic demo data (INVALID FIXTURE)",
             "bus_type": "AC Sleeper",
             "route_distance_km": 560.0,
-            "operator_notes": "Intentional invalid-data test fixture: booked seats exceeds capacity. Blocks recommendation."
+            "operator_notes": "Intentional invalid-data test fixture: booked seats exceeds capacity. Blocks recommendation.",
+            "scheduled_arrival_time": arr_time(24, 10.0),
+            "estimated_duration_hours": 10.0,
+            "expected_arrival_time": arr_time(24, 10.0),
+            "actual_arrival_time": None,
+            "stop_count": 5,
+            "service_category": "regular",
+            "arrival_convenience_label": "Morning Arrival (08:00)",
+            "average_rating": 4.0,
+            "review_count": 510,
+            "rating_source": "Consolidated (RedBus & AbhiBus)",
+            "rating_updated_at": updated_time(20),
+            "amenities": '["AC", "Blanket"]',
+            "on_time_performance_pct": 89.0,
+            "cancellation_rate_pct": 1.9,
+            "service_quality_score": 4.0
         }
     ]
     return trips
@@ -303,7 +471,7 @@ def generate_trip_seats(trip: Dict[str, Any]) -> List[Dict[str, Any]]:
         ]
 
         for deck_name, berth_pos, deck_seat_count, prefix in decks:
-            # 3 berths per row (col 1: Single window, col 3: Double aisle, col 4: Double window)
+            # 3 berths per row (col 1: Single private sleeper window, col 3: Double sharing aisle, col 4: Double sharing window)
             cols_map = [1, 3, 4]
             num_rows = (deck_seat_count + 2) // 3
             seat_counter = 1
@@ -323,12 +491,25 @@ def generate_trip_seats(trip: Dict[str, Any]) -> List[Dict[str, Any]]:
                     seat_num = f"{prefix}{seat_counter}"
                     seat_id = f"{trip_id}-{seat_num}"
 
-                    # Lower berths carry slight base premium; upper berths standard
+                    # Distinct Single vs Sharing Sleeper pricing & privacy attributes
+                    if c == 1:
+                        arrangement = "single"
+                        max_occ = 1
+                        privacy = "private"
+                        arrangement_mult = 1.08  # Single private sleeper premium
+                    else:
+                        arrangement = "sharing"
+                        max_occ = 2
+                        privacy = "semi_private"
+                        arrangement_mult = 0.98  # Sharing sleeper baseline
+
                     berth_mult = 1.04 if berth_pos == "lower" else 0.96
-                    seat_base = round((base_fare * berth_mult) / 10.0) * 10.0
-                    seat_curr = round((current_fare * berth_mult) / 10.0) * 10.0
-                    seat_min = round((min_fare * berth_mult) / 10.0) * 10.0
-                    seat_max = round((max_fare * berth_mult) / 10.0) * 10.0
+                    total_mult = berth_mult * arrangement_mult
+
+                    seat_base = round((base_fare * total_mult) / 10.0) * 10.0
+                    seat_curr = round((current_fare * total_mult) / 10.0) * 10.0
+                    seat_min = round((min_fare * total_mult) / 10.0) * 10.0
+                    seat_max = round((max_fare * total_mult) / 10.0) * 10.0
 
                     all_seats.append({
                         "seat_id": seat_id,
@@ -340,6 +521,11 @@ def generate_trip_seats(trip: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "position": pos,
                         "seat_type": "sleeper",
                         "berth_type": berth_pos,
+                        "sleeper_arrangement": arrangement,
+                        "max_occupants": max_occ,
+                        "privacy_level": privacy,
+                        "is_ac": 1 if "AC" in bus_type else 0,
+                        "bus_category": bus_type,
                         "base_fare": float(seat_base),
                         "current_fare": float(seat_curr),
                         "min_fare": float(seat_min),
@@ -348,8 +534,8 @@ def generate_trip_seats(trip: Dict[str, Any]) -> List[Dict[str, Any]]:
                         "booked_at": None,
                         "collected_fare": None,
                         "passenger_gender": None,
-                        # Preference score for seeding booked seats: lower front > lower middle > upper
-                        "pref_score": (10 if berth_pos == "lower" else 0) + (5 if pos == "front" else (3 if pos == "middle" else 0)) + (2 if c == 1 else 0)
+                        # Preference score: private single lower > sharing lower > upper
+                        "pref_score": (12 if (berth_pos == "lower" and arrangement == "single") else (10 if berth_pos == "lower" else 4)) + (5 if pos == "front" else (3 if pos == "middle" else 0))
                     })
                     seat_counter += 1
 
@@ -392,6 +578,11 @@ def generate_trip_seats(trip: Dict[str, Any]) -> List[Dict[str, Any]]:
                     "position": pos,
                     "seat_type": stype,
                     "berth_type": "none",
+                    "sleeper_arrangement": "none",
+                    "max_occupants": 1,
+                    "privacy_level": "standard",
+                    "is_ac": 1 if "AC" in bus_type else 0,
+                    "bus_category": bus_type,
                     "base_fare": float(seat_base),
                     "current_fare": float(seat_curr),
                     "min_fare": float(seat_min),
@@ -484,12 +675,22 @@ def seed_data() -> None:
                     trip_id, route_name, origin, destination, departure_time,
                     total_seats, booked_seats, base_fare, current_fare,
                     min_fare, max_fare, data_updated_at, data_source_label,
-                    bus_type, route_distance_km, operator_notes
+                    bus_type, route_distance_km, operator_notes,
+                    scheduled_arrival_time, estimated_duration_hours,
+                    expected_arrival_time, actual_arrival_time, stop_count,
+                    service_category, arrival_convenience_label, average_rating,
+                    review_count, rating_source, rating_updated_at, amenities,
+                    on_time_performance_pct, cancellation_rate_pct, service_quality_score
                 ) VALUES (
                     :trip_id, :route_name, :origin, :destination, :departure_time,
                     :total_seats, :booked_seats, :base_fare, :current_fare,
                     :min_fare, :max_fare, :data_updated_at, :data_source_label,
-                    :bus_type, :route_distance_km, :operator_notes
+                    :bus_type, :route_distance_km, :operator_notes,
+                    :scheduled_arrival_time, :estimated_duration_hours,
+                    :expected_arrival_time, :actual_arrival_time, :stop_count,
+                    :service_category, :arrival_convenience_label, :average_rating,
+                    :review_count, :rating_source, :rating_updated_at, :amenities,
+                    :on_time_performance_pct, :cancellation_rate_pct, :service_quality_score
                 );
             """, t)
 
@@ -499,14 +700,16 @@ def seed_data() -> None:
                 cursor.execute("""
                     INSERT OR REPLACE INTO trip_seats (
                         seat_id, trip_id, seat_number, deck, row_idx, col_idx,
-                        position, seat_type, berth_type, base_fare, current_fare,
-                        min_fare, max_fare, booking_status, booked_at, collected_fare,
-                        passenger_gender
+                        position, seat_type, berth_type, sleeper_arrangement,
+                        max_occupants, privacy_level, is_ac, bus_category,
+                        base_fare, current_fare, min_fare, max_fare, booking_status,
+                        booked_at, collected_fare, passenger_gender
                     ) VALUES (
                         :seat_id, :trip_id, :seat_number, :deck, :row_idx, :col_idx,
-                        :position, :seat_type, :berth_type, :base_fare, :current_fare,
-                        :min_fare, :max_fare, :booking_status, :booked_at, :collected_fare,
-                        :passenger_gender
+                        :position, :seat_type, :berth_type, :sleeper_arrangement,
+                        :max_occupants, :privacy_level, :is_ac, :bus_category,
+                        :base_fare, :current_fare, :min_fare, :max_fare, :booking_status,
+                        :booked_at, :collected_fare, :passenger_gender
                     );
                 """, s)
 

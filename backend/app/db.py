@@ -43,7 +43,24 @@ def init_db() -> None:
                 data_source_label TEXT NOT NULL DEFAULT 'Synthetic demo data',
                 bus_type TEXT DEFAULT 'AC Seater',
                 route_distance_km REAL,
-                operator_notes TEXT
+                operator_notes TEXT,
+                -- Journey timing attributes
+                scheduled_arrival_time TEXT,
+                estimated_duration_hours REAL,
+                expected_arrival_time TEXT,
+                actual_arrival_time TEXT,
+                stop_count INTEGER DEFAULT 2,
+                service_category TEXT DEFAULT 'regular', -- 'express', 'limited_stop', 'regular'
+                arrival_convenience_label TEXT,
+                -- Bus ratings and quality
+                average_rating REAL DEFAULT 4.2,
+                review_count INTEGER DEFAULT 1200,
+                rating_source TEXT DEFAULT 'Consolidated (RedBus & AbhiBus)',
+                rating_updated_at TEXT,
+                amenities TEXT DEFAULT '[]', -- JSON string
+                on_time_performance_pct REAL DEFAULT 92.0,
+                cancellation_rate_pct REAL DEFAULT 1.5,
+                service_quality_score REAL DEFAULT 4.3
             );
         """)
 
@@ -88,18 +105,6 @@ def init_db() -> None:
                 FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
             );
         """)
-
-        # Schema migrations for existing databases
-        for col, col_def in [
-            ("evidence_quality_status", "TEXT NOT NULL DEFAULT 'Strong data'"),
-            ("evidence_quality_details", "TEXT NOT NULL DEFAULT '{}'"),
-            ("recommended_action", "TEXT NOT NULL DEFAULT 'Maintain fare'"),
-            ("competitor_summary", "TEXT NOT NULL DEFAULT '{}'"),
-        ]:
-            try:
-                cursor.execute(f"ALTER TABLE recommendations ADD COLUMN {col} {col_def}")
-            except sqlite3.OperationalError:
-                pass
 
         # 4. Operator decisions table
         cursor.execute("""
@@ -153,6 +158,16 @@ def init_db() -> None:
                 rating REAL DEFAULT 4.2,
                 review_count INTEGER DEFAULT 1200,
                 amenities TEXT DEFAULT '[]', -- JSON string
+                -- Journey timing & comparable matching
+                journey_duration_hours REAL,
+                scheduled_arrival_time TEXT,
+                service_category TEXT DEFAULT 'regular',
+                seat_type TEXT DEFAULT 'sleeper',
+                berth_type TEXT DEFAULT 'lower',
+                sleeper_arrangement TEXT DEFAULT 'single', -- 'single', 'sharing', 'none'
+                seat_position TEXT DEFAULT 'middle',
+                additional_fees REAL DEFAULT 0.0,
+                comparability_notes TEXT,
                 is_simulated INTEGER NOT NULL DEFAULT 1,
                 data_source_label TEXT NOT NULL DEFAULT 'Synthetic competitor data (RedBus & AbhiBus SeatSeller schema)',
                 captured_at TEXT NOT NULL
@@ -171,6 +186,12 @@ def init_db() -> None:
                 position TEXT NOT NULL, -- 'front', 'middle', 'back'
                 seat_type TEXT NOT NULL, -- 'sitting', 'sleeper', 'semi-sleeper'
                 berth_type TEXT NOT NULL DEFAULT 'none', -- 'lower', 'upper', 'none'
+                -- Sharing and privacy attributes
+                sleeper_arrangement TEXT NOT NULL DEFAULT 'none', -- 'single', 'sharing', 'none'
+                max_occupants INTEGER NOT NULL DEFAULT 1,
+                privacy_level TEXT NOT NULL DEFAULT 'standard', -- 'private', 'semi_private', 'standard'
+                is_ac INTEGER NOT NULL DEFAULT 1,
+                bus_category TEXT NOT NULL DEFAULT 'Sleeper',
                 base_fare REAL NOT NULL,
                 current_fare REAL NOT NULL,
                 min_fare REAL NOT NULL,
@@ -225,10 +246,61 @@ def init_db() -> None:
                 decision_status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN'
                 approved_fare REAL,
                 created_at TEXT NOT NULL,
+                -- Enhanced factor breakdown
+                timing_factor_pct REAL DEFAULT 0.0,
+                quality_factor_pct REAL DEFAULT 0.0,
+                arrangement_factor_pct REAL DEFAULT 0.0,
+                break_even_impact TEXT DEFAULT '',
                 FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE,
                 FOREIGN KEY (seat_id) REFERENCES trip_seats (seat_id) ON DELETE CASCADE
             );
         """)
+
+        # Schema migrations for existing databases
+        migrations = [
+            ("trips", "scheduled_arrival_time", "TEXT"),
+            ("trips", "estimated_duration_hours", "REAL"),
+            ("trips", "expected_arrival_time", "TEXT"),
+            ("trips", "actual_arrival_time", "TEXT"),
+            ("trips", "stop_count", "INTEGER DEFAULT 2"),
+            ("trips", "service_category", "TEXT DEFAULT 'regular'"),
+            ("trips", "arrival_convenience_label", "TEXT"),
+            ("trips", "average_rating", "REAL DEFAULT 4.2"),
+            ("trips", "review_count", "INTEGER DEFAULT 1200"),
+            ("trips", "rating_source", "TEXT DEFAULT 'Consolidated (RedBus & AbhiBus)'"),
+            ("trips", "rating_updated_at", "TEXT"),
+            ("trips", "amenities", "TEXT DEFAULT '[]'"),
+            ("trips", "on_time_performance_pct", "REAL DEFAULT 92.0"),
+            ("trips", "cancellation_rate_pct", "REAL DEFAULT 1.5"),
+            ("trips", "service_quality_score", "REAL DEFAULT 4.3"),
+            ("trip_seats", "sleeper_arrangement", "TEXT NOT NULL DEFAULT 'none'"),
+            ("trip_seats", "max_occupants", "INTEGER NOT NULL DEFAULT 1"),
+            ("trip_seats", "privacy_level", "TEXT NOT NULL DEFAULT 'standard'"),
+            ("trip_seats", "is_ac", "INTEGER NOT NULL DEFAULT 1"),
+            ("trip_seats", "bus_category", "TEXT NOT NULL DEFAULT 'Sleeper'"),
+            ("competitor_fares", "journey_duration_hours", "REAL"),
+            ("competitor_fares", "scheduled_arrival_time", "TEXT"),
+            ("competitor_fares", "service_category", "TEXT DEFAULT 'regular'"),
+            ("competitor_fares", "seat_type", "TEXT DEFAULT 'sleeper'"),
+            ("competitor_fares", "berth_type", "TEXT DEFAULT 'lower'"),
+            ("competitor_fares", "sleeper_arrangement", "TEXT DEFAULT 'single'"),
+            ("competitor_fares", "seat_position", "TEXT DEFAULT 'middle'"),
+            ("competitor_fares", "additional_fees", "REAL DEFAULT 0.0"),
+            ("competitor_fares", "comparability_notes", "TEXT"),
+            ("recommendations", "evidence_quality_status", "TEXT NOT NULL DEFAULT 'Strong data'"),
+            ("recommendations", "evidence_quality_details", "TEXT NOT NULL DEFAULT '{}'"),
+            ("recommendations", "recommended_action", "TEXT NOT NULL DEFAULT 'Maintain fare'"),
+            ("recommendations", "competitor_summary", "TEXT NOT NULL DEFAULT '{}'"),
+            ("seat_recommendations", "timing_factor_pct", "REAL DEFAULT 0.0"),
+            ("seat_recommendations", "quality_factor_pct", "REAL DEFAULT 0.0"),
+            ("seat_recommendations", "arrangement_factor_pct", "REAL DEFAULT 0.0"),
+            ("seat_recommendations", "break_even_impact", "TEXT DEFAULT ''"),
+        ]
+        for tbl, col, col_def in migrations:
+            try:
+                cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_def}")
+            except sqlite3.OperationalError:
+                pass
 
         conn.commit()
 

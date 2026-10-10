@@ -99,6 +99,15 @@ export interface CompetitorFare {
   rating: number;
   review_count: number;
   amenities: string[];
+  journey_duration_hours?: number | null;
+  scheduled_arrival_time?: string | null;
+  service_category?: string | null;
+  seat_type?: string | null;
+  berth_type?: string | null;
+  sleeper_arrangement?: string | null;
+  seat_position?: string | null;
+  additional_fees?: number;
+  comparability_notes?: string | null;
   is_simulated: boolean;
   data_source_label: string;
   captured_at: string;
@@ -121,6 +130,8 @@ export interface CompetitorPriceSummary {
   market_position: string;
   platforms_represented: string[];
   comparable_competitors: CompetitorFare[];
+  category_benchmarks?: Record<string, { count: number; median: number; min: number; max: number }>;
+  comparability_warnings?: string[];
   matching_criteria?: Record<string, any>;
   conclusion_action?: PricingAction | string;
   conclusion_headline?: string;
@@ -162,6 +173,21 @@ export interface Trip {
   origin: string;
   destination: string;
   departure_time: string;
+  scheduled_arrival_time?: string;
+  estimated_duration_hours?: number;
+  expected_arrival_time?: string;
+  actual_arrival_time?: string;
+  stop_count?: number;
+  service_category?: string;
+  arrival_convenience_label?: string;
+  average_rating?: number;
+  review_count?: number;
+  rating_source?: string;
+  rating_updated_at?: string;
+  amenities?: string[] | string;
+  on_time_performance_pct?: number;
+  cancellation_rate_pct?: number;
+  service_quality_score?: number;
   total_seats: number;
   booked_seats: number;
   base_fare: number;
@@ -318,6 +344,11 @@ export interface TripSeat {
   position: 'front' | 'middle' | 'back' | string;
   seat_type: 'sitting' | 'sleeper' | 'semi-sleeper' | string;
   berth_type: 'lower' | 'upper' | 'none' | string;
+  sleeper_arrangement: 'single' | 'sharing' | 'none' | string;
+  max_occupants: number;
+  privacy_level: 'private' | 'semi_private' | 'standard' | string;
+  is_ac: number | boolean;
+  bus_category: string;
   base_fare: number;
   current_fare: number;
   min_fare: number;
@@ -350,6 +381,10 @@ export interface SeatRecommendation {
   decision_status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'OVERRIDDEN' | string;
   approved_fare?: number | null;
   created_at: string;
+  timing_factor_pct?: number;
+  quality_factor_pct?: number;
+  arrangement_factor_pct?: number;
+  break_even_impact?: string;
 }
 
 export interface TripExpense {
@@ -416,6 +451,7 @@ export interface TripFinancials {
 
 export interface SeatMapData {
   trip_id: string;
+  trip?: Trip;
   bus_type: string;
   deck_count: number;
   decks_available: string[];
@@ -426,6 +462,8 @@ export interface SeatMapData {
   seat_recommendations: SeatRecommendation[];
   category_summaries: Record<string, any>;
   patterns: {
+    single_premium_warranted?: boolean;
+    single_evidence_note?: string;
     lower_premium_warranted?: boolean;
     lower_evidence_note?: string;
     front_premium_warranted?: boolean;

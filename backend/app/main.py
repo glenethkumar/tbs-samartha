@@ -205,6 +205,7 @@ def get_trip_seats(trip_id: str):
 
     return {
         "trip_id": trip_id,
+        "trip": trip,
         "bus_type": trip.get("bus_type", "AC Seater"),
         "deck_count": len(decks),
         "decks_available": decks,
