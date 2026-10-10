@@ -307,3 +307,139 @@ export interface AssumptionsSummary {
     notice: string;
   };
 }
+
+export interface TripSeat {
+  seat_id: string;
+  trip_id: string;
+  seat_number: string;
+  deck: 'lower' | 'upper' | 'main' | string;
+  row_idx: number;
+  col_idx: number;
+  position: 'front' | 'middle' | 'back' | string;
+  seat_type: 'sitting' | 'sleeper' | 'semi-sleeper' | string;
+  berth_type: 'lower' | 'upper' | 'none' | string;
+  base_fare: number;
+  current_fare: number;
+  min_fare: number;
+  max_fare: number;
+  booking_status: 'available' | 'booked' | 'blocked' | string;
+  booked_at?: string | null;
+  collected_fare?: number | null;
+  passenger_gender?: string | null;
+}
+
+export interface SeatRecommendation {
+  seat_recommendation_id: string;
+  recommendation_id: string;
+  trip_id: string;
+  seat_id: string;
+  seat_number: string;
+  category_key: string;
+  current_fare: number;
+  recommended_fare: number;
+  recommended_action: 'Increase fare' | 'Decrease fare' | 'Maintain fare' | 'Locked (Booked)' | string;
+  fare_difference: number;
+  fare_difference_pct: number;
+  rule_applied: string;
+  explanation: string;
+  demand_category: string;
+  booking_velocity: number;
+  competitor_median_for_category?: number | null;
+  confidence_score: string;
+  warnings: string[];
+  decision_status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'OVERRIDDEN' | string;
+  approved_fare?: number | null;
+  created_at: string;
+}
+
+export interface TripExpense {
+  trip_id: string;
+  fuel_cost: number;
+  driver_wages: number;
+  conductor_wages: number;
+  toll_charges: number;
+  platform_commission_pct: number;
+  maintenance_allocation: number;
+  permits_and_taxes: number;
+  other_costs: number;
+  is_estimated: boolean;
+  total_fixed_expenses: number;
+  notes?: string | null;
+}
+
+export interface TripFinancialScenario {
+  scenario_name: 'Conservative' | 'Base Case' | 'Optimistic' | string;
+  description: string;
+  demand_factor: number;
+  expected_additional_bookings: number;
+  forecast_additional_revenue: number;
+  total_expected_revenue: number;
+  total_expenses: number;
+  net_profit: number;
+  profit_margin_pct: number;
+  projected_occupancy_pct: number;
+}
+
+export interface TripFinancials {
+  trip_id: string;
+  capacity: number;
+  current_booked_seats: number;
+  current_booked_revenue: number;
+  average_collected_fare: number;
+  expenses: TripExpense;
+  total_operating_expenses: number;
+  break_even_revenue: number;
+  break_even_occupancy_pct: number;
+  current_pricing_plan: {
+    expected_additional_bookings: number;
+    forecast_remaining_revenue: number;
+    expected_total_revenue: number;
+    expected_operating_expenses: number;
+    expected_net_profit: number;
+    profit_margin_pct: number;
+    expected_occupancy_pct: number;
+  };
+  proposed_dynamic_plan: {
+    expected_additional_bookings: number;
+    forecast_remaining_revenue: number;
+    expected_total_revenue: number;
+    expected_operating_expenses: number;
+    expected_net_profit: number;
+    profit_margin_pct: number;
+    expected_occupancy_pct: number;
+    revenue_lift: number;
+    profit_lift: number;
+  };
+  scenarios: TripFinancialScenario[];
+  disclaimer: string;
+}
+
+export interface SeatMapData {
+  trip_id: string;
+  bus_type: string;
+  deck_count: number;
+  decks_available: string[];
+  total_seats: number;
+  booked_seats: number;
+  available_seats: number;
+  seats: TripSeat[];
+  seat_recommendations: SeatRecommendation[];
+  category_summaries: Record<string, any>;
+  patterns: {
+    lower_premium_warranted?: boolean;
+    lower_evidence_note?: string;
+    front_premium_warranted?: boolean;
+    back_discount_warranted?: boolean;
+    position_evidence_note?: string;
+  };
+  confidence_score: string;
+  competitor_category_benchmarks?: any;
+}
+
+export interface SeatDecisionPayload {
+  seat_ids: string[];
+  decision_type: 'APPROVED' | 'REJECTED' | 'OVERRIDDEN';
+  decision_fare?: number;
+  reason?: string;
+  actor_label?: string;
+}

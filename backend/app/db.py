@@ -159,6 +159,77 @@ def init_db() -> None:
             );
         """)
 
+        # 7. Trip seats table (Seat-level dynamic pricing inventory)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trip_seats (
+                seat_id TEXT PRIMARY KEY,
+                trip_id TEXT NOT NULL,
+                seat_number TEXT NOT NULL,
+                deck TEXT NOT NULL DEFAULT 'lower', -- 'lower', 'upper', 'main'
+                row_idx INTEGER NOT NULL,
+                col_idx INTEGER NOT NULL,
+                position TEXT NOT NULL, -- 'front', 'middle', 'back'
+                seat_type TEXT NOT NULL, -- 'sitting', 'sleeper', 'semi-sleeper'
+                berth_type TEXT NOT NULL DEFAULT 'none', -- 'lower', 'upper', 'none'
+                base_fare REAL NOT NULL,
+                current_fare REAL NOT NULL,
+                min_fare REAL NOT NULL,
+                max_fare REAL NOT NULL,
+                booking_status TEXT NOT NULL DEFAULT 'available', -- 'available', 'booked', 'blocked'
+                booked_at TEXT,
+                collected_fare REAL,
+                passenger_gender TEXT,
+                FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
+            );
+        """)
+
+        # 8. Trip expenses table (Fuel, wages, tolls, commissions, maintenance, permits)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trip_expenses (
+                trip_id TEXT PRIMARY KEY,
+                fuel_cost REAL NOT NULL,
+                driver_wages REAL NOT NULL,
+                conductor_wages REAL NOT NULL,
+                toll_charges REAL NOT NULL,
+                platform_commission_pct REAL NOT NULL DEFAULT 8.0,
+                maintenance_allocation REAL NOT NULL,
+                permits_and_taxes REAL NOT NULL,
+                other_costs REAL NOT NULL DEFAULT 0.0,
+                is_estimated INTEGER NOT NULL DEFAULT 1,
+                notes TEXT,
+                FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
+            );
+        """)
+
+        # 9. Seat recommendations table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS seat_recommendations (
+                seat_recommendation_id TEXT PRIMARY KEY,
+                recommendation_id TEXT NOT NULL,
+                trip_id TEXT NOT NULL,
+                seat_id TEXT NOT NULL,
+                seat_number TEXT NOT NULL,
+                category_key TEXT NOT NULL,
+                current_fare REAL NOT NULL,
+                recommended_fare REAL NOT NULL,
+                recommended_action TEXT NOT NULL, -- 'Increase fare', 'Decrease fare', 'Maintain fare', 'Locked (Booked)'
+                fare_difference REAL NOT NULL,
+                fare_difference_pct REAL NOT NULL,
+                rule_applied TEXT NOT NULL,
+                explanation TEXT NOT NULL,
+                demand_category TEXT NOT NULL,
+                booking_velocity REAL DEFAULT 0.0,
+                competitor_median_for_category REAL,
+                confidence_score TEXT NOT NULL DEFAULT 'Heuristic estimate',
+                warnings TEXT NOT NULL DEFAULT '[]', -- JSON string
+                decision_status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN'
+                approved_fare REAL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE,
+                FOREIGN KEY (seat_id) REFERENCES trip_seats (seat_id) ON DELETE CASCADE
+            );
+        """)
+
         conn.commit()
 
 
@@ -166,6 +237,9 @@ def reset_and_seed_database() -> None:
     """Drops and re-populates tables with seed data."""
     with get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS seat_recommendations;")
+        cursor.execute("DROP TABLE IF EXISTS trip_seats;")
+        cursor.execute("DROP TABLE IF EXISTS trip_expenses;")
         cursor.execute("DROP TABLE IF EXISTS competitor_fares;")
         cursor.execute("DROP TABLE IF EXISTS operator_decisions;")
         cursor.execute("DROP TABLE IF EXISTS recommendations;")

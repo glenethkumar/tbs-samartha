@@ -18,13 +18,16 @@ from app.models import (
     TripResponse, TripCreate, TripUpdate,
     RecommendationModel, DecisionCreate, OperatorDecisionModel,
     AuditEventModel, SimulationRequest, SimulationResult,
-    DashboardSummary
+    DashboardSummary, SeatDecisionCreate
 )
 from app.services.trip_service import TripService
 from app.services.recommendation_service import RecommendationService
 from app.services.operator_service import OperatorService
 from app.services.audit_service import AuditService
 from app.services.simulation_service import SimulationService
+from app.services.seat_demand_service import SeatDemandService
+from app.services.seat_pricing_policy import SeatPricingPolicy
+from app.services.trip_financial_service import TripFinancialService
 
 
 @asynccontextmanager
@@ -176,6 +179,95 @@ def get_trip_competitors(trip_id: str):
     from app.services.competitor_service import CompetitorService
     summary = CompetitorService.get_competitor_summary(trip_id)
     return summary
+
+
+@app.get("/api/trips/{trip_id}/seats")
+def get_trip_seats(trip_id: str):
+    trip = TripService.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+
+    seats = SeatDemandService.get_trip_seats(trip_id)
+    demand_analysis = SeatDemandService.analyze_category_demand(trip_id)
+    recs = SeatPricingPolicy.get_latest_seat_recommendations(trip_id)
+    if not recs:
+        # Generate initial recommendations if none exist
+        recs = SeatPricingPolicy.calculate_seat_recommendations(trip_id)
+        SeatPricingPolicy.persist_seat_recommendations(recs)
+        recs = SeatPricingPolicy.get_latest_seat_recommendations(trip_id)
+
+    decks = sorted(list(set(s["deck"] for s in seats)))
+    booked_count = sum(1 for s in seats if s["booking_status"] == "booked")
+    available_count = len(seats) - booked_count
+
+    from app.services.competitor_service import CompetitorService
+    comp_summary = CompetitorService.get_competitor_summary(trip_id)
+
+    return {
+        "trip_id": trip_id,
+        "bus_type": trip.get("bus_type", "AC Seater"),
+        "deck_count": len(decks),
+        "decks_available": decks,
+        "total_seats": len(seats),
+        "booked_seats": booked_count,
+        "available_seats": available_count,
+        "seats": seats,
+        "seat_recommendations": recs,
+        "category_summaries": demand_analysis.get("categories", {}),
+        "patterns": demand_analysis.get("patterns", {}),
+        "confidence_score": demand_analysis.get("confidence_score", "Heuristic estimate"),
+        "competitor_category_benchmarks": comp_summary
+    }
+
+
+@app.get("/api/trips/{trip_id}/financials")
+def get_trip_financials(trip_id: str):
+    trip = TripService.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+    try:
+        financials = TripFinancialService.calculate_trip_financials(trip_id)
+        return financials
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/trips/{trip_id}/seat-recommendations/generate")
+def generate_seat_recommendations(trip_id: str):
+    trip = TripService.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+    try:
+        recs = SeatPricingPolicy.calculate_seat_recommendations(trip_id)
+        SeatPricingPolicy.persist_seat_recommendations(recs)
+        persisted = SeatPricingPolicy.get_latest_seat_recommendations(trip_id)
+        financials = TripFinancialService.calculate_trip_financials(trip_id, seat_recommendations=persisted)
+        return {
+            "trip_id": trip_id,
+            "seat_recommendations": persisted,
+            "financials": financials,
+            "count": len(persisted)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/trips/{trip_id}/seat-decisions", status_code=status.HTTP_201_CREATED)
+def record_seat_decisions(trip_id: str, payload: SeatDecisionCreate):
+    try:
+        res = OperatorService.record_seat_decisions(
+            trip_id=trip_id,
+            seat_ids=payload.seat_ids,
+            decision_type=payload.decision_type,
+            decision_fare=payload.decision_fare,
+            reason=payload.reason,
+            actor_label=payload.actor_label
+        )
+        return res
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/competitor-fares/import-csv")

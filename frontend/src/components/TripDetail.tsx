@@ -24,11 +24,13 @@ import {
   Upload,
   FileSpreadsheet,
   RotateCcw,
-  Star
+  Star,
+  Layers
 } from 'lucide-react';
-import type { Trip, CompetitorPriceSummary, CompetitorCsvImportResult } from '../types';
+import type { Trip, CompetitorPriceSummary, CompetitorCsvImportResult, SeatMapData, TripFinancials } from '../types';
 import { api } from '../api';
 import { DecisionModal } from './DecisionModal';
+import { SeatMap } from './SeatMap';
 
 interface TripDetailProps {
   tripId: string;
@@ -43,6 +45,11 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
   const [approving, setApproving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [whyExpanded, setWhyExpanded] = useState(true);
+
+  // Seat-level pricing & layout state
+  const [activeTab, setActiveTab] = useState<'seats' | 'pricing'>('seats');
+  const [seatData, setSeatData] = useState<SeatMapData | null>(null);
+  const [financials, setFinancials] = useState<TripFinancials | null>(null);
 
   // Competitor pricing state
   const [competitorSummary, setCompetitorSummary] = useState<CompetitorPriceSummary | null>(null);
@@ -69,6 +76,17 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
           setCompetitorSummary(data.latest_recommendation.competitor_summary);
         }
       }
+
+      try {
+        const [sData, fData] = await Promise.all([
+          api.getTripSeats(tripId),
+          api.getTripFinancials(tripId),
+        ]);
+        setSeatData(sData);
+        setFinancials(fData);
+      } catch (err) {
+        console.error('Error fetching seat map or financials', err);
+      }
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to fetch trip details' });
     } finally {
@@ -84,7 +102,10 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
     setGenerating(true);
     setFeedback(null);
     try {
-      const rec = await api.generateRecommendation(tripId);
+      const [rec] = await Promise.all([
+        api.generateRecommendation(tripId),
+        api.generateSeatRecommendations(tripId)
+      ]);
       // Refresh trip details so latest recommendation and audit events are up to date
       await fetchTripDetails();
       onRefreshList();
@@ -97,7 +118,7 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         const actionStr = rec.recommended_action ? ` [${rec.recommended_action.toUpperCase()}]` : '';
         setFeedback({
           type: 'success',
-          message: `Generated rule-based recommendation${actionStr}: ₹${rec.recommended_fare}`,
+          message: `Generated rule-based recommendation${actionStr}: ₹${rec.recommended_fare} & Seat Dynamic Matrix updated`,
         });
       }
     } catch (err: any) {
@@ -271,8 +292,80 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         </div>
       )}
 
-      {/* Overview Grid */}
-      <div className="grid-cols-3">
+      {/* View Navigation Tabs: Seat Map & Revenue Simulation vs Trip Pricing & Market Intelligence */}
+      <div 
+        style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          borderBottom: '1px solid var(--border-subtle)', 
+          marginBottom: '16px',
+          marginTop: '6px'
+        }}
+      >
+        <button
+          id="tab-seat-map"
+          className={`btn ${activeTab === 'seats' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('seats')}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            padding: '10px 18px', 
+            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
+            borderBottom: activeTab === 'seats' ? '2px solid #38bdf8' : 'none'
+          }}
+        >
+          <Layers size={16} />
+          <span style={{ fontWeight: 600 }}>Seat Map & Revenue Simulation</span>
+          {seatData && (
+            <span style={{ 
+              fontSize: '0.72rem', 
+              background: 'rgba(255,255,255,0.2)', 
+              padding: '2px 8px', 
+              borderRadius: '9999px',
+              fontWeight: 700
+            }}>
+              {seatData.total_seats} Seats
+            </span>
+          )}
+        </button>
+        <button
+          id="tab-trip-pricing"
+          className={`btn ${activeTab === 'pricing' ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setActiveTab('pricing')}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            padding: '10px 18px', 
+            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
+            borderBottom: activeTab === 'pricing' ? '2px solid #38bdf8' : 'none'
+          }}
+        >
+          <SlidersHorizontal size={16} />
+          <span style={{ fontWeight: 600 }}>Trip Pricing & Market Intelligence</span>
+        </button>
+      </div>
+
+      {activeTab === 'seats' && (
+        seatData ? (
+          <SeatMap
+            tripId={tripId}
+            seatData={seatData}
+            financials={financials}
+            onRefresh={fetchTripDetails}
+          />
+        ) : (
+          <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: 'var(--text-muted)' }}>Loading seat inventory and layout...</p>
+          </div>
+        )
+      )}
+
+      {activeTab === 'pricing' && (
+        <>
+          {/* Overview Grid */}
+          <div className="grid-cols-3">
         {/* Card 1: Seat Inventory */}
         <div className="card">
           <div className="card-header">
@@ -1250,6 +1343,8 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Decision Modal */}
       {decisionModalType && rec && (

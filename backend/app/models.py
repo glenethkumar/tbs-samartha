@@ -225,3 +225,115 @@ class DashboardSummary(BaseModel):
     recent_activity_count: int
     data_source_label: str
     occupancy_distribution: Dict[str, int]
+
+
+# --- Seat-Level Inventory & Pricing Models ---
+
+class TripSeatModel(BaseModel):
+    seat_id: str
+    trip_id: str
+    seat_number: str
+    deck: str = "lower"  # 'lower', 'upper', 'main'
+    row_idx: int
+    col_idx: int
+    position: str  # 'front', 'middle', 'back'
+    seat_type: str  # 'sitting', 'sleeper', 'semi-sleeper'
+    berth_type: str = "none"  # 'lower', 'upper', 'none'
+    base_fare: float
+    current_fare: float
+    min_fare: float
+    max_fare: float
+    booking_status: str = "available"  # 'available', 'booked', 'blocked'
+    booked_at: Optional[str] = None
+    collected_fare: Optional[float] = None
+    passenger_gender: Optional[str] = None
+
+
+class TripExpenseModel(BaseModel):
+    trip_id: str
+    fuel_cost: float
+    driver_wages: float
+    conductor_wages: float
+    toll_charges: float
+    platform_commission_pct: float = 8.0
+    maintenance_allocation: float
+    permits_and_taxes: float
+    other_costs: float = 0.0
+    is_estimated: bool = True
+    notes: Optional[str] = None
+    total_fixed_expenses: float = 0.0
+
+
+class SeatRecommendationModel(BaseModel):
+    seat_recommendation_id: str
+    recommendation_id: str
+    trip_id: str
+    seat_id: str
+    seat_number: str
+    category_key: str
+    current_fare: float
+    recommended_fare: float
+    recommended_action: str  # 'Increase fare', 'Decrease fare', 'Maintain fare', 'Locked (Booked)'
+    fare_difference: float
+    fare_difference_pct: float
+    rule_applied: str
+    explanation: str
+    demand_category: str
+    booking_velocity: float = 0.0
+    competitor_median_for_category: Optional[float] = None
+    confidence_score: str = "Heuristic estimate"
+    warnings: List[str] = []
+    decision_status: str = "PENDING"  # 'PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN'
+    approved_fare: Optional[float] = None
+    created_at: str
+
+
+class SeatDecisionCreate(BaseModel):
+    seat_ids: List[str]
+    decision_type: str  # 'APPROVED', 'REJECTED', 'OVERRIDDEN'
+    decision_fare: Optional[float] = None
+    reason: Optional[str] = None
+    actor_label: str = "Demo operator"
+
+
+class TripFinancialScenario(BaseModel):
+    scenario_name: str  # 'Conservative', 'Base Case', 'Optimistic'
+    description: str
+    demand_factor: float
+    expected_additional_bookings: int
+    forecast_additional_revenue: float
+    total_expected_revenue: float
+    total_expenses: float
+    net_profit: float
+    profit_margin_pct: float
+    projected_occupancy_pct: float
+
+
+class TripFinancialsResponse(BaseModel):
+    trip_id: str
+    capacity: int
+    current_booked_seats: int
+    current_booked_revenue: float
+    average_collected_fare: float
+    expenses: TripExpenseModel
+    total_operating_expenses: float
+    break_even_revenue: float
+    break_even_occupancy_pct: float
+    current_pricing_plan: Dict[str, Any]
+    proposed_dynamic_plan: Dict[str, Any]
+    scenarios: List[TripFinancialScenario]
+    disclaimer: str = "SIMULATED FINANCIAL PROJECTION - NOT GUARANTEED PROFIT. Actual realization depends on live passenger demand and market conditions."
+
+
+class SeatMapResponse(BaseModel):
+    trip_id: str
+    bus_type: str
+    deck_count: int
+    decks_available: List[str]
+    total_seats: int
+    booked_seats: int
+    available_seats: int
+    seats: List[TripSeatModel]
+    seat_recommendations: List[SeatRecommendationModel]
+    category_summaries: Dict[str, Any]
+    competitor_category_benchmarks: Dict[str, Any]

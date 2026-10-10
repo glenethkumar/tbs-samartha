@@ -121,4 +121,32 @@ export const api = {
     fetchApi<{ message: string }>('/database/reset', {
       method: 'POST',
     }),
+
+  getTripSeats: (tripId: string) =>
+    fetchApi<import('./types').SeatMapData>(`/trips/${encodeURIComponent(tripId)}/seats`),
+
+  getTripFinancials: (tripId: string) =>
+    fetchApi<import('./types').TripFinancials>(`/trips/${encodeURIComponent(tripId)}/financials`),
+
+  generateSeatRecommendations: (tripId: string) =>
+    fetchApi<{
+      trip_id: string;
+      seat_recommendations: import('./types').SeatRecommendation[];
+      financials: import('./types').TripFinancials;
+      count: number;
+    }>(`/trips/${encodeURIComponent(tripId)}/seat-recommendations/generate`, {
+      method: 'POST',
+    }),
+
+  recordSeatDecisions: (tripId: string, payload: import('./types').SeatDecisionPayload) =>
+    fetchApi<{
+      success: boolean;
+      trip_id: string;
+      decision_type: string;
+      updated_seats_count: number;
+      message: string;
+    }>(`/trips/${encodeURIComponent(tripId)}/seat-decisions`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
