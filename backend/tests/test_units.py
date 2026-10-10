@@ -548,6 +548,9 @@ def test_competitor_summary_calculation():
         "Significantly Below Market", "Moderately Below Market",
         "Competitive / Par", "Above Market", "Significantly Above Market"
     )
+    assert summary["conclusion_action"] in ("Increase fare", "Decrease fare", "Maintain fare")
+    assert summary["conclusion_headline"] is not None
+    assert summary["conclusion_reason"] is not None
 
 
 # 28. Pricing policy recommends 'Increase fare' when demand is high and below market

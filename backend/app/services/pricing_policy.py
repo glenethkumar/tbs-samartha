@@ -182,10 +182,17 @@ class PricingPolicy:
         comp_text = ""
         if has_competitor_data and comp_median:
             platforms_label = " & ".join(comp_platforms) if comp_platforms else "RedBus/AbhiBus"
+            if comp_diff_pct < -5.0:
+                comp_conclusion = f" Market Comparison Conclusion: Rival apps charge higher (+{abs(comp_diff_pct):.1f}%); fare should be INCREASED."
+            elif comp_diff_pct > 8.0:
+                comp_conclusion = f" Market Comparison Conclusion: Rival apps are cheaper (-{abs(comp_diff_pct):.1f}%); fare should be DECREASED."
+            else:
+                comp_conclusion = f" Market Comparison Conclusion: Fare matches rival apps at parity (within {abs(comp_diff_pct):.1f}%)."
+
             comp_text = (
                 f" Market Benchmark: {platforms_label} median ₹{comp_median:.0f} "
                 f"(range ₹{comp_min:.0f}–₹{comp_max:.0f}, {comp_sample_size} operators). "
-                f"Current fare is {abs(comp_diff_pct):.1f}% {'above' if comp_diff_pct > 0 else 'below' if comp_diff_pct < 0 else 'at'} market median."
+                f"Current fare is {abs(comp_diff_pct):.1f}% {'above' if comp_diff_pct > 0 else 'below' if comp_diff_pct < 0 else 'at'} market median.{comp_conclusion}"
             )
 
         clamp_note = f" Guardrail action: {clamped_reason}" if is_clamped else " Boundary constraint: verified within permitted limits."

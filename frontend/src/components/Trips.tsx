@@ -268,29 +268,31 @@ export const Trips: React.FC<TripsProps> = ({ onSelectTrip }) => {
                           <span className={`badge badge-${trip.demand_category?.toLowerCase() || 'medium'}`}>
                             {trip.demand_category}
                           </span>
-                          {(trip.latest_recommendation?.recommended_action || trip.recommended_action) && (
-                            <span 
-                              style={{ 
-                                fontSize: '0.68rem', 
-                                fontWeight: 700, 
-                                padding: '2px 6px', 
-                                borderRadius: '4px',
-                                letterSpacing: '0.02em',
-                                color: (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Increase fare' 
-                                  ? '#34d399' 
-                                  : (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Decrease fare' 
-                                  ? '#fb7185' 
-                                  : '#38bdf8',
-                                backgroundColor: (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Increase fare' 
-                                  ? 'rgba(16, 185, 129, 0.18)' 
-                                  : (trip.latest_recommendation?.recommended_action || trip.recommended_action) === 'Decrease fare' 
-                                  ? 'rgba(244, 63, 94, 0.18)' 
-                                  : 'rgba(56, 189, 248, 0.18)'
-                              }}
-                            >
-                              {trip.latest_recommendation?.recommended_action || trip.recommended_action}
-                            </span>
-                          )}
+                          {(() => {
+                            const act = trip.latest_recommendation?.recommended_action || trip.recommended_action;
+                            if (!act) return null;
+                            const isInc = act === 'Increase fare';
+                            const isDec = act === 'Decrease fare';
+                            return (
+                              <span 
+                                style={{ 
+                                  fontSize: '0.68rem', 
+                                  fontWeight: 700, 
+                                  padding: '2px 6px', 
+                                  borderRadius: '4px',
+                                  letterSpacing: '0.02em',
+                                  color: isInc ? '#34d399' : isDec ? '#fb7185' : '#38bdf8',
+                                  backgroundColor: isInc 
+                                    ? 'rgba(16, 185, 129, 0.18)' 
+                                    : isDec 
+                                    ? 'rgba(244, 63, 94, 0.18)' 
+                                    : 'rgba(56, 189, 248, 0.18)'
+                                }}
+                              >
+                                {`Action: ${act.toUpperCase()}`}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td>

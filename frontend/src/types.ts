@@ -122,6 +122,9 @@ export interface CompetitorPriceSummary {
   platforms_represented: string[];
   comparable_competitors: CompetitorFare[];
   matching_criteria?: Record<string, any>;
+  conclusion_action?: PricingAction | string;
+  conclusion_headline?: string;
+  conclusion_reason?: string;
 }
 
 export interface Recommendation {

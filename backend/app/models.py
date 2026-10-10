@@ -98,6 +98,9 @@ class CompetitorPriceSummary(BaseModel):
     platforms_represented: List[str] = []
     comparable_competitors: List[CompetitorFareModel] = []
     matching_criteria: Dict[str, Any] = {}
+    conclusion_action: Optional[str] = None  # "Increase fare", "Decrease fare", "Maintain fare"
+    conclusion_headline: Optional[str] = None
+    conclusion_reason: Optional[str] = None
 
 
 class CompetitorCsvImportResult(BaseModel):

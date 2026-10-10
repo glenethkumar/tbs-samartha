@@ -132,7 +132,10 @@ class CompetitorService:
                     "destination": destination,
                     "bus_type": bus_type,
                     "window_hours": window_hours
-                }
+                },
+                "conclusion_action": "Maintain fare",
+                "conclusion_headline": "No Competitor Listings Available",
+                "conclusion_reason": "No comparable market rates found on RedBus or AbhiBus for this corridor and departure window."
             }
 
         fares = sorted([float(c["fare"]) for c in unique_items])
@@ -165,6 +168,34 @@ class CompetitorService:
             market_pos = "Significantly Above Market"
 
         platforms = sorted(list(set(c.get("platform", "RedBus") for c in unique_items)))
+        platforms_str = " & ".join(platforms) if platforms else "RedBus and AbhiBus"
+
+        # Explicit Market Price Comparison Conclusion: Increase vs Decrease vs Maintain
+        if diff_vs_median_pct < -5.0:
+            conclusion_action = "Increase fare"
+            conclusion_headline = f"Price Should Be INCREASED (Our fare is ₹{abs(diff_vs_median):.0f} below {platforms_str} median)"
+            conclusion_reason = (
+                f"Comparing our current fare (₹{current_fare:.0f}) with competitor listings across {platforms_str} "
+                f"shows the market median is ₹{median_fare:.0f} (ranging from ₹{min_fare:.0f} to ₹{max_fare:.0f} across {sample_size} listings). "
+                f"Our ticket is {abs(diff_vs_median_pct):.1f}% below the market benchmark. "
+                f"Conclusion: Increase fare to capture unharvested revenue surplus while maintaining strong competitiveness."
+            )
+        elif diff_vs_median_pct > 8.0:
+            conclusion_action = "Decrease fare"
+            conclusion_headline = f"Price Should Be DECREASED (Our fare is ₹{diff_vs_median:.0f} higher than {platforms_str} median)"
+            conclusion_reason = (
+                f"Comparing our current fare (₹{current_fare:.0f}) with competitor listings across {platforms_str} "
+                f"shows competitors charge a median of ₹{median_fare:.0f}. Our ticket is {diff_vs_median_pct:.1f}% more expensive. "
+                f"Conclusion: Decrease fare to remain competitive against rival operators and avoid losing travelers."
+            )
+        else:
+            conclusion_action = "Maintain fare"
+            conclusion_headline = f"Price Should Be MAINTAINED (Our fare matches {platforms_str} median at parity)"
+            conclusion_reason = (
+                f"Comparing our current fare (₹{current_fare:.0f}) with competitor listings across {platforms_str} "
+                f"indicates our ticket price is closely aligned with the market median of ₹{median_fare:.0f} (within {abs(diff_vs_median_pct):.1f}%). "
+                f"Conclusion: Maintain current fare to protect yield stability and customer trust."
+            )
 
         return {
             "sample_size": sample_size,
@@ -183,6 +214,9 @@ class CompetitorService:
             "market_position": market_pos,
             "platforms_represented": platforms,
             "comparable_competitors": unique_items,
+            "conclusion_action": conclusion_action,
+            "conclusion_headline": conclusion_headline,
+            "conclusion_reason": conclusion_reason,
             "matching_criteria": {
                 "origin": origin,
                 "destination": destination,
@@ -366,6 +400,18 @@ class CompetitorService:
                 for i in range(5)
             ]
 
+            # Route-level market pressure multiplier to showcase realistic competitive variance:
+            # - High competitive demand (rival apps surge higher): conclusion -> Increase fare
+            # - Aggressive competitor discounting (rival apps undercut): conclusion -> Decrease fare
+            # - Parity markets (rival apps aligned with our price): conclusion -> Maintain fare
+            route_factor = 1.0
+            if any(k in trip_id for k in ("DEL-JAI", "PUN-GOA", "BLR-HYD")):
+                route_factor = 1.20  # Rival apps charging more -> Opportunity to increase fare
+            elif any(k in trip_id for k in ("HYD-VJA", "KOL-DGH", "CLAMP")):
+                route_factor = 0.82  # Rival apps slashing prices -> Pressure to decrease fare
+            else:
+                route_factor = 1.01  # Parity
+
             for idx, op in enumerate(selected_operators):
                 # Offset departure time within +/- 90 mins
                 dep_offset_mins = ((idx * 37 + hash_val) % 150) - 75
@@ -373,7 +419,7 @@ class CompetitorService:
                 comp_dep_str = comp_dep.strftime("%Y-%m-%dT%H:%M:%SZ")
 
                 # Calculate fare relative to base_fare rounded to nearest ₹10
-                raw_comp_fare = base_fare * op["fare_mult"]
+                raw_comp_fare = base_fare * op["fare_mult"] * route_factor
                 comp_fare = round(raw_comp_fare / 10.0) * 10.0
 
                 records_to_insert.append({

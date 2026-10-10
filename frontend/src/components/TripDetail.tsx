@@ -477,6 +477,88 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         {/* Metrics Grid */}
         {competitorSummary && competitorSummary.sample_size > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Prominent Market Price Comparison Conclusion Box */}
+            {(() => {
+              const conclusionAction = competitorSummary.conclusion_action || (
+                (competitorSummary.current_fare_diff_vs_median_pct ?? 0) < -5.0 ? 'Increase fare' :
+                (competitorSummary.current_fare_diff_vs_median_pct ?? 0) > 8.0 ? 'Decrease fare' :
+                'Maintain fare'
+              );
+              const isInc = conclusionAction === 'Increase fare';
+              const isDec = conclusionAction === 'Decrease fare';
+              const actionColor = isInc ? '#10b981' : isDec ? '#f43f5e' : '#38bdf8';
+              const bgGradient = isInc
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(6, 78, 59, 0.28))'
+                : isDec
+                ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.16), rgba(136, 19, 55, 0.28))'
+                : 'linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(30, 58, 138, 0.28))';
+
+              return (
+                <div 
+                  id="competitor-price-conclusion-card"
+                  style={{
+                    background: bgGradient,
+                    border: `2px solid ${actionColor}`,
+                    borderRadius: 'var(--radius-md)',
+                    padding: '20px 24px',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                      <span 
+                        style={{
+                          fontSize: '0.92rem',
+                          fontWeight: 800,
+                          padding: '6px 18px',
+                          borderRadius: '9999px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          backgroundColor: actionColor,
+                          color: '#ffffff',
+                          boxShadow: '0 3px 10px rgba(0,0,0,0.35)'
+                        }}
+                      >
+                        {isInc && <TrendingUp size={20} />}
+                        {isDec && <TrendingDown size={20} />}
+                        {!isInc && !isDec && <Minus size={20} />}
+                        <span>CONCLUSION: {conclusionAction.toUpperCase()}</span>
+                      </span>
+
+                      <span style={{ fontSize: '1.08rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {competitorSummary.conclusion_headline || (
+                          isInc ? `Price Should Be INCREASED (Our fare is lower than market median)` :
+                          isDec ? `Price Should Be DECREASED (Our fare is higher than competitor median)` :
+                          `Price Should Be MAINTAINED (Our fare matches market parity)`
+                        )}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                        Evaluated across {competitorSummary.sample_size} listings on {competitorSummary.platforms_represented.join(' & ') || 'RedBus & AbhiBus'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: 1.6, borderTop: '1px solid rgba(255,255,255,0.12)', paddingTop: '10px' }}>
+                    <strong>Market Analysis &amp; Action Rationale: </strong>
+                    {competitorSummary.conclusion_reason || (
+                      `Comparing our operating fare (₹${trip.current_fare}) against competitor rates on RedBus and AbhiBus (Market Median: ₹${competitorSummary.median_fare}, range ₹${competitorSummary.min_fare}–₹${competitorSummary.max_fare}) ` +
+                      `proves that our tickets are ${competitorSummary.current_fare_diff_vs_median !== undefined && competitorSummary.current_fare_diff_vs_median !== null ? `${Math.abs(competitorSummary.current_fare_diff_vs_median_pct || 0)}% ${competitorSummary.current_fare_diff_vs_median < 0 ? 'below' : 'above'}` : 'at'} market parity. ` +
+                      `Consequently, the algorithm concludes that the ticket price should be ${conclusionAction.toLowerCase()}.`
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               {/* Metric 1: Median Fare */}
               <div style={{ padding: '14px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
@@ -760,31 +842,26 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                       {rec.recommended_action && (
                         <span 
                           style={{
-                            fontSize: '0.78rem',
+                            fontSize: '0.8rem',
                             fontWeight: 800,
-                            padding: '3px 12px',
+                            padding: '4px 14px',
                             borderRadius: '9999px',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px',
                             backgroundColor: rec.recommended_action === 'Increase fare' 
-                              ? 'rgba(16, 185, 129, 0.2)' 
+                              ? '#10b981' 
                               : rec.recommended_action === 'Decrease fare' 
-                              ? 'rgba(244, 63, 94, 0.2)' 
-                              : 'rgba(56, 189, 248, 0.2)',
-                            color: rec.recommended_action === 'Increase fare' 
-                              ? '#34d399' 
-                              : rec.recommended_action === 'Decrease fare' 
-                              ? '#fb7185' 
-                              : '#38bdf8',
-                            border: `1px solid ${rec.recommended_action === 'Increase fare' ? '#10b981' : rec.recommended_action === 'Decrease fare' ? '#f43f5e' : '#38bdf8'}60`,
-                            boxShadow: '0 0 10px rgba(0,0,0,0.2)'
+                              ? '#f43f5e' 
+                              : '#0284c7',
+                            color: '#ffffff',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
                           }}
                         >
-                          {rec.recommended_action === 'Increase fare' && <TrendingUp size={14} />}
-                          {rec.recommended_action === 'Decrease fare' && <TrendingDown size={14} />}
-                          {rec.recommended_action === 'Maintain fare' && <Minus size={14} />}
-                          <span>{rec.recommended_action.toUpperCase()}</span>
+                          {rec.recommended_action === 'Increase fare' && <TrendingUp size={15} />}
+                          {rec.recommended_action === 'Decrease fare' && <TrendingDown size={15} />}
+                          {rec.recommended_action === 'Maintain fare' && <Minus size={15} />}
+                          <span>CONCLUSION: {rec.recommended_action.toUpperCase()}</span>
                         </span>
                       )}
                     </div>
