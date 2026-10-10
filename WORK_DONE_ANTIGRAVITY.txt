@@ -516,5 +516,60 @@ Frontend (`frontend/`):
    - Integration tests covering persistence, audit logs, duplicate decision prevention, stale fixture blocks, and API workflows.
 
 ================================================================================
+12. EXPLAINABLE PRICING CONFIDENCE & EVIDENCE QUALITY FRAMEWORK (PHASE 3)
+================================================================================
+
+1. Three-Tier Deterministic Evidence Quality Model:
+   - Strong Data:
+     * All required inputs valid, fresh (data freshness age <= 120 minutes).
+     * Departure time in the future.
+     * Observation window >= 2.0 hours for reliable booking pace calculation.
+     * Confidence score: 0.90 - 0.95.
+   - Limited Data:
+     * Recommendation computable using core occupancy and boundaries.
+     * Observation window < 2.0 hours or sparse historical velocity.
+     * Clearly flagged with warnings so operators exercise manual scrutiny.
+     * Confidence score: 0.70.
+   - Insufficient Data:
+     * Triggered by stale data (> 120 minutes old), negative values, inverted bounds, or missing critical fields.
+     * Generates an explicit `BLOCKED` recommendation status.
+     * Blocks automated algorithmic fare shifts and preserves current fare safely.
+     * Confidence score: 0.00.
+
+2. Comprehensive 7-Point Explainability Audit Details:
+   - Preserved and exposed for every trip recommendation:
+     1. Current occupancy percentage and exact threshold applied (<30% Low, 30-70% Medium, >70% High).
+     2. Booking pace with timestamped observation window (`window_start`, `window_end`, `window_hours`, `bookings_per_hour`).
+     3. Time until departure (`hours_to_departure`, human-readable days/hours string).
+     4. Last successful data-update timestamp and data age in minutes.
+     5. Detected missing, stale, invalid, or inconsistent input items (with explicit blocker descriptions).
+     6. Evaluated pricing rules and rationale factors applied.
+     7. Recommended fare clamped strictly within trip minimum (`min_fare`) and maximum (`max_fare`) bounds.
+
+3. End-to-End Persistence & Backend Services:
+   - Added `evidence_quality_status` and `evidence_quality_details` to SQLite database tables (`trips`, `recommendations`) and Pydantic models.
+   - Updated `DemandClassifier` to produce structured observation window metadata.
+   - Added `evaluate_evidence_quality()` to `ValidationService`.
+   - Updated `RecommendationService` to persist rich evidence audits for both active recommendations and blocked/validation-failure fallbacks.
+
+4. UI & Operator Workflow Integrations:
+   - Real-time Evidence Quality Badges in `Trips.tsx` inventory table and `TripDetail.tsx`.
+   - Expandable 7-point audit drawer ("Why this recommendation? - Evidence Quality & Pricing Audit") in `TripDetail.tsx`.
+   - Comprehensive methodology documentation in Section 5 of System Assumptions (`Assumptions.tsx`).
+
+5. Automated Test Suite Expansion (37/37 Tests Passing):
+   - 8 new unit tests in `test_units.py`:
+     * `test_evidence_quality_strong_data`
+     * `test_evidence_quality_limited_data`
+     * `test_evidence_quality_stale_data`
+     * `test_evidence_quality_departure_in_past`
+     * `test_recommendation_evidence_quality_integration_strong`
+     * `test_recommendation_evidence_quality_integration_limited`
+     * `test_recommendation_evidence_quality_blocked_stale`
+     * `test_recommendation_evidence_quality_blocked_invalid_fares`
+   - Complete regression suite (37 tests total) passed with 100% success rate.
+   - Frontend production build (`npm run build`) cleanly compiled with Vite.
+
+================================================================================
 END OF REPORT
 ================================================================================
