@@ -6,16 +6,22 @@ import shutil
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
-IS_SERVERLESS = bool(
-    os.environ.get("VERCEL") 
-    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") 
-    or os.environ.get("LAMBDA_TASK_ROOT")
-)
-
 ORIGINAL_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 ORIGINAL_DB_PATH = os.path.join(ORIGINAL_DATA_DIR, "fleetyield.db")
 
-if IS_SERVERLESS:
+def is_dir_writable(path: str) -> bool:
+    try:
+        os.makedirs(path, exist_ok=True)
+        test_file = os.path.join(path, f".write_test_{os.getpid()}")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        return True
+    except Exception:
+        return False
+
+# Serverless or Read-only environment: use /tmp
+if not is_dir_writable(ORIGINAL_DATA_DIR):
     DB_DIR = "/tmp"
     DB_PATH = os.path.join(DB_DIR, "fleetyield.db")
     if os.path.exists(ORIGINAL_DB_PATH) and not os.path.exists(DB_PATH):
@@ -24,13 +30,9 @@ if IS_SERVERLESS:
         except Exception as e:
             print(f"Warning: could not copy pre-seeded database to /tmp: {e}")
 else:
-    try:
-        os.makedirs(ORIGINAL_DATA_DIR, exist_ok=True)
-        DB_DIR = ORIGINAL_DATA_DIR
-        DB_PATH = ORIGINAL_DB_PATH
-    except OSError:
-        DB_DIR = "/tmp"
-        DB_PATH = os.path.join(DB_DIR, "fleetyield.db")
+    DB_DIR = ORIGINAL_DATA_DIR
+    DB_PATH = ORIGINAL_DB_PATH
+
 
 
 def get_connection() -> sqlite3.Connection:
