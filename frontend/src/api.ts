@@ -149,4 +149,52 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  // Feature 2: What-If Simulator
+  simulateWhatIf: (tripId: string, payload: import('./types').WhatIfSimulateRequest) =>
+    fetchApi<import('./types').WhatIfSimulateResponse>(`/trips/${encodeURIComponent(tripId)}/what-if-simulate`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // Feature 3: Competitor Trends Timeline
+  getCompetitorTrends: (tripId: string, days: number = 7) =>
+    fetchApi<import('./types').CompetitorTrendResponse>(`/trips/${encodeURIComponent(tripId)}/competitor-trends?days=${days}`),
+
+  // Feature 5: Operational Alerts
+  getAlerts: (params?: { status?: string; severity?: string; trip_id?: string; trigger_scan?: boolean }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.severity) searchParams.set('severity', params.severity);
+    if (params?.trip_id) searchParams.set('trip_id', params.trip_id);
+    if (params?.trigger_scan !== undefined) searchParams.set('trigger_scan', String(params.trigger_scan));
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return fetchApi<import('./types').OperationalAlert[]>(`/alerts${query}`);
+  },
+
+  acknowledgeAlert: (alertId: string, actorLabel: string = 'Operator') =>
+    fetchApi<import('./types').OperationalAlert>(`/alerts/${encodeURIComponent(alertId)}/acknowledge`, {
+      method: 'POST',
+      body: JSON.stringify({ actor_label: actorLabel }),
+    }),
+
+  resolveAlert: (alertId: string, actorLabel: string = 'Operator') =>
+    fetchApi<import('./types').OperationalAlert>(`/alerts/${encodeURIComponent(alertId)}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ actor_label: actorLabel }),
+    }),
+
+  // Feature 5: Daily Operations Report
+  getDailyReport: (date?: string) => {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return fetchApi<import('./types').DailyOperationsReport>(`/reports/daily${query}`);
+  },
+
+  downloadDailyReportCsvUrl: (date?: string) => {
+    return `${API_BASE}/reports/daily/export-csv${date ? `?date=${encodeURIComponent(date)}` : ''}`;
+  },
+
+  // Feature 6: Recommendation Performance Tracking
+  getPerformanceSummary: () =>
+    fetchApi<import('./types').PerformanceSummary>('/performance/summary'),
 };

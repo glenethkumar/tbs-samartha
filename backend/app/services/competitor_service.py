@@ -532,7 +532,7 @@ class CompetitorService:
                 comp_fare = round(raw_comp_fare / 10.0) * 10.0
                 add_fees = 25.0 if op["platform"] == "RedBus" else 15.0
 
-                records_to_insert.append({
+                comp_record = {
                     "competitor_fare_id": f"COMP-{trip_id[-6:]}-{idx+1}",
                     "trip_id": trip_id,
                     "origin": origin,
@@ -560,11 +560,48 @@ class CompetitorService:
                     "is_simulated": 1,
                     "data_source_label": "Synthetic competitor data (RedBus & AbhiBus SeatSeller schema)",
                     "captured_at": now_str
+                }
+                records_to_insert.append(comp_record)
+
+        # Build 7-day historical observation timeline
+        history_records: List[Dict[str, Any]] = []
+        for rec in records_to_insert:
+            base_f = rec["fare"]
+            is_stale_trip = "STALE" in (rec.get("trip_id") or "")
+            stale_offset_hours = 36 if is_stale_trip else 3
+            for d in range(7, -1, -1):
+                obs_time = (now - timedelta(days=d, hours=stale_offset_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                # Deterministic slight day-over-day price drift
+                price_shift = ((hash(rec["operator_name"] + str(d)) % 5) - 2) * 20.0
+                hist_fare = max(300.0, base_f + price_shift)
+
+                history_records.append({
+                    "history_id": f"HIST-{rec['competitor_fare_id']}-{d}",
+                    "competitor_fare_id": rec["competitor_fare_id"],
+                    "trip_id": rec["trip_id"],
+                    "origin": rec["origin"],
+                    "destination": rec["destination"],
+                    "route_name": rec["route_name"],
+                    "departure_time": rec["departure_time"],
+                    "bus_type": rec["bus_type"],
+                    "operator_name": rec["operator_name"],
+                    "platform": rec["platform"],
+                    "fare": hist_fare,
+                    "additional_fees": rec["additional_fees"],
+                    "seat_type": rec["seat_type"],
+                    "berth_type": rec["berth_type"],
+                    "sleeper_arrangement": rec["sleeper_arrangement"],
+                    "is_comparable": 1,
+                    "incomparability_reason": "",
+                    "captured_at": obs_time,
+                    "freshness_status": "fresh" if d <= 1 else "historical",
+                    "data_source_label": "Synthetic competitor observation history"
                 })
 
         with get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM competitor_fares WHERE is_simulated = 1;")
+            cursor.execute("DELETE FROM competitor_fare_history WHERE data_source_label = 'Synthetic competitor observation history';")
             cursor.executemany("""
                 INSERT INTO competitor_fares (
                     competitor_fare_id, trip_id, origin, destination, route_name,
@@ -584,6 +621,233 @@ class CompetitorService:
                     :data_source_label, :captured_at
                 );
             """, records_to_insert)
+
+            cursor.executemany("""
+                INSERT INTO competitor_fare_history (
+                    history_id, competitor_fare_id, trip_id, origin, destination,
+                    route_name, departure_time, bus_type, operator_name, platform,
+                    fare, additional_fees, seat_type, berth_type, sleeper_arrangement,
+                    is_comparable, incomparability_reason, captured_at, freshness_status,
+                    data_source_label
+                ) VALUES (
+                    :history_id, :competitor_fare_id, :trip_id, :origin, :destination,
+                    :route_name, :departure_time, :bus_type, :operator_name, :platform,
+                    :fare, :additional_fees, :seat_type, :berth_type, :sleeper_arrangement,
+                    :is_comparable, :incomparability_reason, :captured_at, :freshness_status,
+                    :data_source_label
+                );
+            """, history_records)
             conn.commit()
 
         return len(records_to_insert)
+
+    @staticmethod
+    def record_competitor_observation(
+        competitor_fare_id: str,
+        origin: str,
+        destination: str,
+        departure_time: str,
+        bus_type: str,
+        operator_name: str,
+        platform: str,
+        fare: float,
+        additional_fees: float = 0.0,
+        trip_id: Optional[str] = None,
+        seat_type: str = "sleeper",
+        berth_type: str = "lower",
+        sleeper_arrangement: str = "single",
+        is_comparable: bool = True,
+        incomparability_reason: str = "",
+        captured_at: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Feature 3: Records a timestamped competitor fare observation."""
+        if not captured_at:
+            captured_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        hist_id = f"HIST-{uuid.uuid4().hex[:8].upper()}"
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO competitor_fare_history (
+                    history_id, competitor_fare_id, trip_id, origin, destination,
+                    route_name, departure_time, bus_type, operator_name, platform,
+                    fare, additional_fees, seat_type, berth_type, sleeper_arrangement,
+                    is_comparable, incomparability_reason, captured_at, freshness_status,
+                    data_source_label
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'fresh', 'Live competitor observation');
+            """, (
+                hist_id, competitor_fare_id, trip_id, origin, destination,
+                f"{origin} to {destination}", departure_time, bus_type, operator_name, platform,
+                fare, additional_fees, seat_type, berth_type, sleeper_arrangement,
+                1 if is_comparable else 0, incomparability_reason, captured_at
+            ))
+            conn.commit()
+
+        return {"history_id": hist_id, "captured_at": captured_at, "fare": fare}
+
+    @staticmethod
+    def get_competitor_fare_trends(trip_id: str, days: int = 7) -> Dict[str, Any]:
+        """
+        Feature 3: Historical Competitor Fare Tracking.
+        Retrieves historical observations over a configurable period (default 7 days).
+        Displays daily median, min, max, operator breakdown, price shifts, and freshness warnings.
+        """
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM trips WHERE trip_id = ?;", (trip_id,))
+            trip_row = cursor.fetchone()
+
+        if not trip_row:
+            raise KeyError(f"Trip '{trip_id}' not found")
+
+        trip = dict(trip_row)
+        origin = trip["origin"]
+        dest = trip["destination"]
+        our_current_fare = float(trip["current_fare"])
+
+        now = datetime.now(timezone.utc)
+        cutoff_dt = now - timedelta(days=days)
+        cutoff_str = cutoff_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT * FROM competitor_fare_history
+                WHERE (trip_id = ? OR (LOWER(origin) = LOWER(?) AND LOWER(destination) = LOWER(?)))
+                  AND captured_at >= ?
+                ORDER BY captured_at ASC;
+            """, (trip_id, origin, dest, cutoff_str))
+            rows = cursor.fetchall()
+
+        observations = [dict(r) for r in rows]
+
+        warnings: List[str] = []
+        if not observations:
+            warnings.append(f"No historical competitor observations found for corridor {origin} to {dest} in the last {days} days.")
+            return {
+                "trip_id": trip_id,
+                "origin": origin,
+                "destination": dest,
+                "our_current_fare": our_current_fare,
+                "trend_days": days,
+                "total_observations": 0,
+                "timeline": [],
+                "recent_price_shifts": [],
+                "incomparable_services": [],
+                "is_stale": True,
+                "freshness_status": "No historical data",
+                "warnings": warnings
+            }
+
+        # Check freshness of latest observation
+        latest_obs = max(observations, key=lambda x: x["captured_at"])
+        latest_time = datetime.fromisoformat(latest_obs["captured_at"].replace("Z", "+00:00"))
+        age_hours = (now - latest_time).total_seconds() / 3600.0
+        is_stale = age_hours > 24.0
+
+        if is_stale:
+            warnings.append(f"Latest competitor observation was collected {age_hours:.1f} hours ago (> 24h threshold). Data may be stale.")
+
+        # Group observations by date (YYYY-MM-DD)
+        date_groups: Dict[str, List[Dict[str, Any]]] = {}
+        operator_trajectories: Dict[str, List[Dict[str, Any]]] = {}
+        incomparable_services: List[Dict[str, Any]] = []
+
+        for obs in observations:
+            # Check comparability
+            if not obs.get("is_comparable", 1):
+                incomparable_services.append({
+                    "operator_name": obs["operator_name"],
+                    "platform": obs["platform"],
+                    "fare": obs["fare"],
+                    "reason": obs.get("incomparability_reason", "Service category mismatch")
+                })
+                continue
+
+            dt_key = obs["captured_at"][:10]
+            if dt_key not in date_groups:
+                date_groups[dt_key] = []
+            date_groups[dt_key].append(obs)
+
+            op_name = obs["operator_name"]
+            if op_name not in operator_trajectories:
+                operator_trajectories[op_name] = []
+            operator_trajectories[op_name].append(obs)
+
+        # Build daily timeline
+        timeline: List[Dict[str, Any]] = []
+        for date_str in sorted(date_groups.keys()):
+            items = date_groups[date_str]
+            fares = [float(x["fare"]) for x in items]
+            fares.sort()
+            n = len(fares)
+            median = (fares[n//2] if n % 2 != 0 else (fares[n//2 - 1] + fares[n//2]) / 2.0) if n > 0 else 0.0
+
+            # Operator fare map for this date
+            op_fares: Dict[str, float] = {}
+            for item in items:
+                op_fares[item["operator_name"]] = float(item["fare"])
+
+            timeline.append({
+                "date": date_str,
+                "median_fare": round(median, 2),
+                "min_fare": round(fares[0], 2),
+                "max_fare": round(fares[-1], 2),
+                "average_fare": round(sum(fares) / len(fares), 2),
+                "our_fare": our_current_fare,
+                "sample_count": len(fares),
+                "operator_fares": op_fares,
+                "difference_vs_our_fare": round(our_current_fare - median, 2)
+            })
+
+        # Calculate price shifts per operator
+        price_shifts: List[Dict[str, Any]] = []
+        for op_name, obs_list in operator_trajectories.items():
+            if len(obs_list) >= 2:
+                earliest = min(obs_list, key=lambda x: x["captured_at"])
+                latest = max(obs_list, key=lambda x: x["captured_at"])
+                fare_diff = round(latest["fare"] - earliest["fare"], 2)
+                fare_diff_pct = round((fare_diff / earliest["fare"] * 100.0), 1) if earliest["fare"] > 0 else 0.0
+
+                if abs(fare_diff) > 0:
+                    shift_type = "INCREASE" if fare_diff > 0 else "DECREASE"
+                    is_unusual = abs(fare_diff_pct) >= 15.0
+                    price_shifts.append({
+                        "operator_name": op_name,
+                        "platform": latest["platform"],
+                        "earliest_fare": earliest["fare"],
+                        "latest_fare": latest["fare"],
+                        "fare_difference": fare_diff,
+                        "fare_difference_pct": fare_diff_pct,
+                        "shift_type": shift_type,
+                        "is_unusual_movement": is_unusual,
+                        "earliest_date": earliest["captured_at"][:10],
+                        "latest_date": latest["captured_at"][:10]
+                    })
+
+        # Latest comparable summary
+        all_comp_fares = [float(x["fare"]) for x in observations if x.get("is_comparable", 1)]
+        all_comp_fares.sort()
+        n_tot = len(all_comp_fares)
+        overall_median = (all_comp_fares[n_tot//2] if n_tot % 2 != 0 else (all_comp_fares[n_tot//2 - 1] + all_comp_fares[n_tot//2]) / 2.0) if n_tot > 0 else our_current_fare
+
+        return {
+            "trip_id": trip_id,
+            "origin": origin,
+            "destination": dest,
+            "our_current_fare": our_current_fare,
+            "trend_days": days,
+            "total_observations": len(observations),
+            "overall_comparable_median": round(overall_median, 2),
+            "overall_comparable_min": round(all_comp_fares[0], 2) if all_comp_fares else our_current_fare,
+            "overall_comparable_max": round(all_comp_fares[-1], 2) if all_comp_fares else our_current_fare,
+            "our_fare_vs_median_diff": round(our_current_fare - overall_median, 2),
+            "timeline": timeline,
+            "recent_price_shifts": price_shifts,
+            "incomparable_services": incomparable_services,
+            "is_stale": is_stale,
+            "last_captured_at": latest_obs["captured_at"],
+            "freshness_status": "Stale (>24h)" if is_stale else "Fresh",
+            "warnings": warnings
+        }
+

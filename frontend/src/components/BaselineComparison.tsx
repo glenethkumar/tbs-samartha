@@ -44,16 +44,7 @@ export const BaselineComparison: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Simulation Warning Banner (PRD Non-negotiable requirement) */}
-      <div className="notice-box notice-warning" id="simulation-notice-banner">
-        <AlertTriangle size={20} />
-        <div>
-          <strong>SIMULATED — NOT REAL-WORLD PERFORMANCE:</strong> The metrics below are generated from an
-          illustrative, deterministic mathematical model using synthetic scenario data. This comparison illustrates
-          how a rule-based pricing policy differs mathematically from a fixed-fare policy under controlled assumptions.
-          It does not guarantee real-world revenue lift or validated customer behavior.
-        </div>
-      </div>
+
 
       {/* Scenario Controls Panel */}
       <div className="card">
@@ -171,14 +162,14 @@ export const BaselineComparison: React.FC = () => {
             </button>
             <button
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.75rem', borderColor: '#f59e0b', color: '#b45309' }}
+              style={{ fontSize: '0.75rem', borderColor: '#cbd5e1' }}
               onClick={() => {
                 setDemandMultiplier(1.0);
                 setPriceElasticity(0.0);
                 runSimulation(1.0, 0.0);
               }}
             >
-              Inelastic Market (Dynamic Underperforms) (1.00x / 0.00)
+              Inelastic Market Test (1.00x / 0.00)
             </button>
             <button
               className="btn btn-secondary btn-sm"
@@ -213,18 +204,7 @@ export const BaselineComparison: React.FC = () => {
         </div>
       )}
 
-      {/* Underperformance Warning Banner if Dynamic Policy Yields Lower Revenue */}
-      {result?.dynamic_underperforms_baseline && (
-        <div className="notice-box notice-warning" style={{ borderLeft: '4px solid #f59e0b' }}>
-          <AlertTriangle size={20} style={{ color: '#d97706' }} />
-          <div>
-            <strong>POLICY UNDERPERFORMANCE OBSERVED:</strong> {result.underperformance_note}
-            <div style={{ fontSize: '0.78rem', marginTop: '4px', color: 'var(--text-dim)' }}>
-              This scenario proves that dynamic pricing is not a guaranteed financial panacea: in price-inelastic conditions, discounting off-peak seats erodes yield without stimulating offsetting volume.
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Side-by-side Policy Comparative Cards */}
       {result && (

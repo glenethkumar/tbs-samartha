@@ -9,6 +9,7 @@ import { AuditLog } from './components/AuditLog';
 import { Assumptions } from './components/Assumptions';
 import { About } from './components/About';
 import { Settings } from './components/Settings';
+import { PerformanceDashboard } from './components/PerformanceDashboard';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
@@ -33,6 +34,8 @@ export const App: React.FC = () => {
         return 'Trip & Seat Inventory';
       case 'recommendations':
         return selectedTripId ? `Pricing Engine — ${selectedTripId}` : 'Pricing Recommendation Engine';
+      case 'performance':
+        return 'Recommendation Performance Tracking';
       case 'baseline':
         return 'Fixed-Fare Baseline Comparison';
       case 'audit':
@@ -62,6 +65,7 @@ export const App: React.FC = () => {
           onRefresh={handleGlobalRefresh}
           dateRange={dateRange}
           setDateRange={setDateRange}
+          onSelectTrip={handleSelectTrip}
         />
 
         <main className="content-body" key={refreshTrigger}>
@@ -84,6 +88,10 @@ export const App: React.FC = () => {
               onBack={() => setActiveTab('trips')}
               onRefreshList={handleGlobalRefresh}
             />
+          )}
+
+          {activeTab === 'performance' && (
+            <PerformanceDashboard />
           )}
 
           {activeTab === 'baseline' && (

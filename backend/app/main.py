@@ -7,7 +7,7 @@ operator decisions, audit logging, simulation, and rule transparency.
 import os
 from contextlib import asynccontextmanager
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -18,7 +18,7 @@ from app.models import (
     TripResponse, TripCreate, TripUpdate,
     RecommendationModel, DecisionCreate, OperatorDecisionModel,
     AuditEventModel, SimulationRequest, SimulationResult,
-    DashboardSummary, SeatDecisionCreate
+    DashboardSummary, SeatDecisionCreate, WhatIfSimulateRequest
 )
 from app.services.trip_service import TripService
 from app.services.recommendation_service import RecommendationService
@@ -28,6 +28,11 @@ from app.services.simulation_service import SimulationService
 from app.services.seat_demand_service import SeatDemandService
 from app.services.seat_pricing_policy import SeatPricingPolicy
 from app.services.trip_financial_service import TripFinancialService
+from app.services.competitor_service import CompetitorService
+from app.services.alert_service import AlertService
+from app.services.report_service import ReportService
+from app.services.performance_service import PerformanceService
+
 
 
 @asynccontextmanager
@@ -296,6 +301,112 @@ def reset_competitor_sample():
 def reset_database():
     reset_and_seed_database()
     return {"message": "Database successfully reset and re-seeded with synthetic demo data."}
+
+
+# -------------------------------------------------------------
+# FEATURE 2: WHAT-IF REVENUE AND PROFIT SIMULATOR ENDPOINT
+# -------------------------------------------------------------
+@app.post("/api/trips/{trip_id}/what-if-simulate")
+def simulate_trip_what_if(trip_id: str, payload: WhatIfSimulateRequest):
+    trip = TripService.get_trip(trip_id)
+    if not trip:
+        raise HTTPException(status_code=404, detail=f"Trip '{trip_id}' not found")
+    try:
+        res = TripFinancialService.simulate_what_if(
+            trip_id=trip_id,
+            manual_target_fare=payload.manual_target_fare,
+            manual_adjustment_pct=payload.manual_adjustment_pct,
+            custom_seat_fares=payload.custom_seat_fares,
+            expense_overrides=payload.expense_overrides,
+            scenario_type=payload.scenario_type
+        )
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -------------------------------------------------------------
+# FEATURE 3: HISTORICAL COMPETITOR FARE TRACKING ENDPOINTS
+# -------------------------------------------------------------
+@app.get("/api/trips/{trip_id}/competitor-trends")
+def get_trip_competitor_trends(trip_id: str, days: int = Query(7, ge=1, le=30)):
+    try:
+        trends = CompetitorService.get_competitor_fare_trends(trip_id=trip_id, days=days)
+        return trends
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -------------------------------------------------------------
+# FEATURE 5: OPERATIONAL ALERTS & DAILY REPORTS ENDPOINTS
+# -------------------------------------------------------------
+@app.get("/api/alerts")
+def get_operational_alerts(
+    status: Optional[str] = Query(None, description="Filter by ACTIVE, ACKNOWLEDGED, RESOLVED"),
+    severity: Optional[str] = Query(None, description="Filter by CRITICAL, WARNING, INFO"),
+    trip_id: Optional[str] = Query(None, description="Filter by trip ID"),
+    trigger_scan: bool = Query(True, description="Automatically scan trips for fresh alerts")
+):
+    if trigger_scan:
+        AlertService.scan_and_generate_alerts(trip_id=trip_id)
+    return AlertService.get_alerts(status=status, severity=severity, trip_id=trip_id)
+
+
+@app.post("/api/alerts/{alert_id}/acknowledge")
+def acknowledge_operational_alert(alert_id: str, payload: dict = None):
+    actor = (payload or {}).get("actor_label", "Demo operator")
+    try:
+        return AlertService.acknowledge_alert(alert_id=alert_id, actor_label=actor)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/alerts/{alert_id}/resolve")
+def resolve_operational_alert(alert_id: str, payload: dict = None):
+    actor = (payload or {}).get("actor_label", "Demo operator")
+    try:
+        return AlertService.resolve_alert(alert_id=alert_id, actor_label=actor)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/reports/daily")
+def get_daily_operations_report(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")):
+    try:
+        report = ReportService.generate_daily_report(report_date=date)
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/reports/daily/export-csv")
+def export_daily_operations_report_csv(date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format")):
+    try:
+        csv_content = ReportService.export_daily_report_csv(report_date=date)
+        filename = f"fleetyield_daily_report_{date or 'today'}.csv"
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# -------------------------------------------------------------
+# FEATURE 6: RECOMMENDATION PERFORMANCE TRACKING ENDPOINT
+# -------------------------------------------------------------
+@app.get("/api/performance/summary")
+def get_recommendation_performance_summary():
+    try:
+        return PerformanceService.get_performance_summary()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # Mount built frontend if dist directory exists

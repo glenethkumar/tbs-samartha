@@ -4,9 +4,11 @@ Generates 11 varied synthetic trips and booking snapshots according to PRD secti
 Explicitly labels all records as synthetic demo data and includes test fixtures.
 """
 
+import json
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from app.db import get_connection
+
 
 def generate_seed_trips() -> List[Dict[str, Any]]:
     now = datetime.now(timezone.utc)
@@ -756,9 +758,146 @@ def seed_data() -> None:
     comp_count = CompetitorService.seed_sample_competitors()
     print(f"Seeded {comp_count} competitor benchmarks across routes.")
 
+    # Seed historical recommendation performance snapshots (Feature 6)
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        now_dt = datetime.now(timezone.utc)
+        completed_snapshots = [
+            {
+                "snapshot_id": "SNAP-HIST-01",
+                "recommendation_id": "REC-HIST-01",
+                "trip_id": "TRIP-MUM-PUN-404",
+                "seat_id": "SEAT-404-L-01",
+                "seat_number": "L1",
+                "category_key": "single_lower_sleeper",
+                "current_fare": 450.0,
+                "proposed_fare": 500.0,
+                "forecast_bookings": 1,
+                "forecast_occupancy_pct": 78.0,
+                "forecast_revenue": 17200.0,
+                "forecast_expenses": 11500.0,
+                "forecast_profit": 5700.0,
+                "scenario_assumptions": json.dumps(["Demand elasticity -0.5", "Base conversion 0.85"]),
+                "confidence_score": "High",
+                "created_at": (now_dt - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_status": "APPROVED",
+                "applied_fare": 500.0,
+                "effective_at": (now_dt - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_reason": "Approved system dynamic recommendation",
+                "actor_label": "Demo operator",
+                "is_trip_completed": 1,
+                "completed_at": (now_dt - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "actual_bookings": 28,
+                "actual_occupancy_pct": 77.8,
+                "actual_revenue": 16800.0,
+                "actual_expenses": 11400.0,
+                "actual_profit": 5400.0,
+                "forecast_error_revenue": 400.0,
+                "forecast_error_occupancy": 0.2,
+                "forecast_error_pct": 2.4
+            },
+            {
+                "snapshot_id": "SNAP-HIST-02",
+                "recommendation_id": "REC-HIST-02",
+                "trip_id": "TRIP-MAA-BLR-303",
+                "seat_id": "SEAT-303-L-02",
+                "seat_number": "L2",
+                "category_key": "sharing_lower_sleeper",
+                "current_fare": 750.0,
+                "proposed_fare": 820.0,
+                "forecast_bookings": 1,
+                "forecast_occupancy_pct": 85.0,
+                "forecast_revenue": 26000.0,
+                "forecast_expenses": 16200.0,
+                "forecast_profit": 9800.0,
+                "scenario_assumptions": json.dumps(["Strong commuter weekend"]),
+                "confidence_score": "High",
+                "created_at": (now_dt - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_status": "OVERRIDDEN",
+                "applied_fare": 800.0,
+                "effective_at": (now_dt - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_reason": "Charter party negotiation / Group booking concession",
+                "actor_label": "Demo operator",
+                "is_trip_completed": 1,
+                "completed_at": (now_dt - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "actual_bookings": 34,
+                "actual_occupancy_pct": 85.0,
+                "actual_revenue": 25500.0,
+                "actual_expenses": 16100.0,
+                "actual_profit": 9400.0,
+                "forecast_error_revenue": 500.0,
+                "forecast_error_occupancy": 0.0,
+                "forecast_error_pct": 2.0
+            },
+            {
+                "snapshot_id": "SNAP-HIST-03",
+                "recommendation_id": "REC-HIST-03",
+                "trip_id": "TRIP-BLR-HYD-101",
+                "seat_id": "SEAT-101-U-05",
+                "seat_number": "U5",
+                "category_key": "single_upper_sleeper",
+                "current_fare": 900.0,
+                "proposed_fare": 850.0,
+                "forecast_bookings": 1,
+                "forecast_occupancy_pct": 45.0,
+                "forecast_revenue": 18500.0,
+                "forecast_expenses": 15800.0,
+                "forecast_profit": 2700.0,
+                "scenario_assumptions": json.dumps(["Discount volume incentive"]),
+                "confidence_score": "Medium",
+                "created_at": (now_dt - timedelta(days=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_status": "REJECTED",
+                "applied_fare": 900.0,
+                "effective_at": (now_dt - timedelta(days=4)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "decision_reason": "Operator preferred price floor protection during off-peak window",
+                "actor_label": "Demo operator",
+                "is_trip_completed": 1,
+                "completed_at": (now_dt - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "actual_bookings": 18,
+                "actual_occupancy_pct": 45.0,
+                "actual_revenue": 16200.0,
+                "actual_expenses": 15700.0,
+                "actual_profit": 500.0,
+                "forecast_error_revenue": 2300.0,
+                "forecast_error_occupancy": 0.0,
+                "forecast_error_pct": 14.2
+            }
+        ]
+
+        cursor.executemany("""
+            INSERT OR REPLACE INTO recommendation_snapshots (
+                snapshot_id, recommendation_id, trip_id, seat_id, seat_number,
+                category_key, current_fare, proposed_fare, forecast_bookings,
+                forecast_occupancy_pct, forecast_revenue, forecast_expenses,
+                forecast_profit, scenario_assumptions, confidence_score,
+                created_at, decision_status, applied_fare, effective_at,
+                decision_reason, actor_label, is_trip_completed, completed_at,
+                actual_bookings, actual_occupancy_pct, actual_revenue,
+                actual_expenses, actual_profit, forecast_error_revenue,
+                forecast_error_occupancy, forecast_error_pct
+            ) VALUES (
+                :snapshot_id, :recommendation_id, :trip_id, :seat_id, :seat_number,
+                :category_key, :current_fare, :proposed_fare, :forecast_bookings,
+                :forecast_occupancy_pct, :forecast_revenue, :forecast_expenses,
+                :forecast_profit, :scenario_assumptions, :confidence_score,
+                :created_at, :decision_status, :applied_fare, :effective_at,
+                :decision_reason, :actor_label, :is_trip_completed, :completed_at,
+                :actual_bookings, :actual_occupancy_pct, :actual_revenue,
+                :actual_expenses, :actual_profit, :forecast_error_revenue,
+                :forecast_error_occupancy, :forecast_error_pct
+            );
+        """, completed_snapshots)
+        conn.commit()
+
+    # Generate initial operational alerts (Feature 5)
+    from app.services.alert_service import AlertService
+    alerts = AlertService.scan_and_generate_alerts()
+    print(f"Generated {len(alerts)} initial operational alerts.")
+
 
 if __name__ == "__main__":
     from app.db import init_db
     init_db()
     seed_data()
     print("Database initialized and seeded successfully.")
+

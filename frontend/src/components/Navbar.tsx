@@ -1,31 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   Bell, 
   RotateCcw, 
   CheckCircle2, 
   ChevronDown, 
-  AlertTriangle 
+  FileText
 } from 'lucide-react';
 import { api } from '../api';
+import { AlertsCenterModal } from './AlertsCenterModal';
+import { DailyReportModal } from './DailyReportModal';
 
 interface NavbarProps {
   title: string;
   onRefresh: () => void;
   dateRange: string;
   setDateRange: (range: string) => void;
+  onSelectTrip?: (tripId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
   title, 
   onRefresh, 
   dateRange, 
-  setDateRange 
+  setDateRange,
+  onSelectTrip
 }) => {
   const [resetting, setResetting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+  const [isDailyReportModalOpen, setIsDailyReportModalOpen] = useState(false);
+  const [activeAlertsCount, setActiveAlertsCount] = useState<number>(0);
+
+  const refreshAlertsCount = async () => {
+    try {
+      const activeAlerts = await api.getAlerts({ status: 'ACTIVE', trigger_scan: false });
+      setActiveAlertsCount(activeAlerts.length);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    refreshAlertsCount();
+  }, []);
 
   const handleReset = async () => {
     if (!window.confirm('Reset local SQLite database to initial synthetic seed records? Any custom edits will be reverted.')) {
@@ -36,6 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       const res = await api.resetDatabase();
       setFeedback(res.message);
       onRefresh();
+      refreshAlertsCount();
       setTimeout(() => setFeedback(null), 4000);
     } catch (err: any) {
       alert(`Reset failed: ${err.message}`);
@@ -43,12 +63,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       setResetting(false);
     }
   };
-
-  const notifications = [
-    { id: 1, title: 'Data Freshness Warning', text: 'TRIP-STALE-901 has not been updated in 38h (>24h limit). Pricing blocked.', time: '10m ago', type: 'warning' },
-    { id: 2, title: 'Capacity Validation Block', text: 'TRIP-INVALID-902 booked seats (48) exceed total capacity (40).', time: '1h ago', type: 'danger' },
-    { id: 3, title: 'High Demand Surge', text: 'TRIP-MAA-BLR-303 reached 85% occupancy (+15% premium suggested).', time: '2h ago', type: 'info' },
-  ];
 
   const dateOptions = [
     'Today (Oct 10, 2026)',
@@ -75,6 +89,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       <div className="top-actions">
+        {/* Daily Operations Report Button */}
+        <button
+          id="btn-daily-report"
+          className="btn btn-secondary btn-sm"
+          onClick={() => setIsDailyReportModalOpen(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          title="Open Daily Operations & Reconciliation Report"
+        >
+          <FileText size={14} style={{ color: '#38bdf8' }} />
+          <span>Daily Report</span>
+        </button>
+
         {/* Date Range Selector Dropdown */}
         <div style={{ position: 'relative' }}>
           <button
@@ -82,7 +108,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="btn btn-secondary btn-sm"
             onClick={() => {
               setShowDatePicker(!showDatePicker);
-              setShowNotifications(false);
             }}
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
@@ -134,81 +159,39 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
-        {/* Notifications Bell Dropdown */}
+        {/* Operational Alerts Bell with Active Count Badge */}
         <div style={{ position: 'relative' }}>
           <button
             id="btn-notifications-toggle"
             className="btn btn-secondary btn-sm"
             style={{ padding: '6px 10px', position: 'relative' }}
-            onClick={() => {
-              setShowNotifications(!showNotifications);
-              setShowDatePicker(false);
-            }}
-            title="System notifications and alerts"
+            onClick={() => setIsAlertsModalOpen(true)}
+            title="Operational Alerts & Risk Center"
           >
             <Bell size={16} />
-            <span 
-              style={{
-                position: 'absolute',
-                top: '2px',
-                right: '2px',
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: '#ef4444'
-              }}
-            />
+            {activeAlertsCount > 0 && (
+              <span 
+                style={{
+                  position: 'absolute',
+                  top: '-3px',
+                  right: '-3px',
+                  minWidth: '16px',
+                  height: '16px',
+                  borderRadius: '9999px',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px'
+                }}
+              >
+                {activeAlertsCount}
+              </span>
+            )}
           </button>
-
-          {showNotifications && (
-            <div 
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: '320px',
-                background: '#ffffff',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: 'var(--shadow-lg)',
-                padding: '14px',
-                zIndex: 60,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-heading)' }}>System Alerts</span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: '#f1f5f9', padding: '2px 8px', borderRadius: '10px' }}>
-                  {notifications.length} unread
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {notifications.map((n) => (
-                  <div 
-                    key={n.id}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      backgroundColor: n.type === 'danger' ? '#fef2f2' : n.type === 'warning' ? '#fffbeb' : '#eff6ff',
-                      border: `1px solid ${n.type === 'danger' ? '#fecaca' : n.type === 'warning' ? '#fde68a' : '#bfdbfe'}`,
-                      fontSize: '0.78rem'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: n.type === 'danger' ? '#b91c1c' : n.type === 'warning' ? '#b45309' : '#1d4ed8' }}>
-                      <AlertTriangle size={12} />
-                      <span>{n.title}</span>
-                    </div>
-                    <div style={{ color: 'var(--text-body)', marginTop: '2px', lineHeight: 1.35 }}>
-                      {n.text}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {n.time}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Reset Demo Seed Button */}
@@ -229,10 +212,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '4px 10px 4px 6px',
+            padding: '4px 12px 4px 6px',
             borderRadius: 'var(--radius-full)',
-            backgroundColor: '#f8fafc',
-            border: '1px solid var(--border-light)'
+            backgroundColor: '#ffffff',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-sm)'
           }}
           title="Logged in as Demo Operations Manager"
         >
@@ -241,7 +225,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               width: '28px',
               height: '28px',
               borderRadius: '50%',
-              backgroundColor: '#0f172a',
+              backgroundColor: '#2563eb',
               color: '#ffffff',
               display: 'flex',
               alignItems: 'center',
@@ -257,6 +241,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Alerts Center Modal */}
+      <AlertsCenterModal
+        isOpen={isAlertsModalOpen}
+        onClose={() => {
+          setIsAlertsModalOpen(false);
+          refreshAlertsCount();
+        }}
+        onSelectTrip={onSelectTrip}
+      />
+
+      {/* Daily Operations Report Modal */}
+      <DailyReportModal
+        isOpen={isDailyReportModalOpen}
+        onClose={() => setIsDailyReportModalOpen(false)}
+      />
     </header>
   );
 };

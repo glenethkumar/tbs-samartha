@@ -184,42 +184,40 @@ export const SeatMap: React.FC<SeatMapProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Top Banner: Confidence & Summary */}
       <div 
+        className="card"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '12px',
-          padding: '16px 20px',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-lg)'
+          gap: '14px',
+          padding: '18px 24px'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div 
             style={{
-              width: '40px',
-              height: '40px',
+              width: '42px',
+              height: '42px',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'rgba(14, 165, 233, 0.15)',
+              backgroundColor: 'var(--primary-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#38bdf8'
+              color: 'var(--primary)'
             }}
           >
             <Layers size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span>Seat-Level Dynamic Pricing &amp; Cabin Layout</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-heading)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>Seat-Level Dynamic Pricing</span>
               <span className={`badge ${seatData.confidence_score === 'Data-backed estimate' ? 'badge-valid' : 'badge-medium'}`}>
                 {seatData.confidence_score}
               </span>
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Layout: <strong>{seatData.bus_type}</strong> &bull; {seatData.total_seats} Total Berths/Seats ({seatData.booked_seats} Booked &bull; {seatData.available_seats} Available)
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Select any seat on the map to review price recommendations and competitor benchmarks.
             </div>
           </div>
         </div>
@@ -230,84 +228,67 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               onClick={handleBulkApprove}
               disabled={isSubmitting}
               className="btn btn-primary"
-              style={{ fontSize: '0.82rem', padding: '8px 14px' }}
+              style={{ fontSize: '0.85rem', padding: '9px 16px' }}
             >
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={16} />
               Approve All {pendingRecs.length} Seat Changes
             </button>
           )}
         </div>
       </div>
 
-      {/* Executive Journey Timing, Bus Quality & Operational Profile */}
+      {/* Executive Journey Timing & Operational Profile */}
       {activeTrip && (
         <div 
+          className="card"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-            gap: '12px',
+            gap: '16px',
             padding: '16px 20px',
-            backgroundColor: 'rgba(15, 23, 42, 0.55)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-lg)'
+            backgroundColor: '#f8fafc'
           }}
         >
           {/* Timing & Schedule */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
-              <Clock size={13} style={{ color: '#38bdf8' }} />
-              <span>Journey Timing &amp; Speed</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <Clock size={14} style={{ color: 'var(--primary)' }} />
+              <span>Schedule</span>
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>{activeTrip.estimated_duration_hours ? `${activeTrip.estimated_duration_hours}h duration` : 'Standard Transit'}</span>
-              <span className={`badge ${activeTrip.service_category === 'express' ? 'badge-valid' : 'badge-medium'}`} style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                {activeTrip.service_category?.toUpperCase() || 'REGULAR'}
-              </span>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-heading)', marginTop: '4px' }}>
+              {activeTrip.estimated_duration_hours ? `${activeTrip.estimated_duration_hours}h duration` : 'Standard Transit'} ({activeTrip.service_category?.toUpperCase() || 'REGULAR'})
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px' }}>
-              Dep: <strong>{activeTrip.departure_time ? new Date(activeTrip.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</strong> &bull; Arr: <strong>{activeTrip.scheduled_arrival_time || 'Next Day'}</strong> ({activeTrip.stop_count !== undefined ? `${activeTrip.stop_count} stops` : 'Direct'})
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-body)', marginTop: '2px' }}>
+              Dep: <strong>{activeTrip.departure_time ? new Date(activeTrip.departure_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}</strong> &bull; Arr: <strong>{activeTrip.scheduled_arrival_time || 'Next Day'}</strong>
             </div>
-            {activeTrip.arrival_convenience_label && (
-              <div style={{ fontSize: '0.7rem', color: '#38bdf8', marginTop: '2px', fontStyle: 'italic' }}>
-                {activeTrip.arrival_convenience_label}
-              </div>
-            )}
           </div>
 
           {/* Passenger Rating & Quality */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
-              <Star size={13} style={{ color: '#fbbf24' }} />
-              <span>Passenger Rating &amp; Quality</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <Star size={14} style={{ color: '#d97706' }} />
+              <span>Rating</span>
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#fbbf24', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>★ {activeTrip.average_rating ? activeTrip.average_rating.toFixed(1) : '4.2'} / 5.0</span>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#d97706', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Star size={15} style={{ fill: '#d97706', color: '#d97706' }} />
+              <span className="font-mono">{activeTrip.average_rating ? activeTrip.average_rating.toFixed(1) : '4.2'} / 5.0</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                 ({activeTrip.review_count?.toLocaleString() || '1,200'} reviews)
               </span>
-            </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
-              Source: {activeTrip.rating_source || 'Consolidated RedBus & AbhiBus'}
-            </div>
-            <div style={{ fontSize: '0.7rem', color: '#34d399', marginTop: '2px' }}>
-              Secondary indicator: Modest premium applied only when supported by healthy booking conversion.
             </div>
           </div>
 
           {/* Operational Reliability */}
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
-              <ShieldCheck size={13} style={{ color: '#34d399' }} />
-              <span>Reliability &amp; Cancellation History</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
+              <ShieldCheck size={14} style={{ color: 'var(--status-emerald-text)' }} />
+              <span>Reliability</span>
             </div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#34d399', marginTop: '4px' }}>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--status-emerald-text)', marginTop: '4px' }}>
               {activeTrip.on_time_performance_pct || 92}% On-Time Arrival
             </div>
-            <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '2px' }}>
-              Cancellation rate: <strong>{activeTrip.cancellation_rate_pct || 1.5}%</strong> &bull; Service Quality: <strong>{activeTrip.service_quality_score || 4.3}/5.0</strong>
-            </div>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>
-              Strict verification prevents arbitrary price inflation.
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-body)', marginTop: '2px' }}>
+              Cancellation rate: {activeTrip.cancellation_rate_pct || 1.5}%
             </div>
           </div>
         </div>
@@ -338,7 +319,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
         <div className="card" style={{ padding: '20px' }}>
           {/* Deck Switcher (for multi-deck sleeper buses) */}
           {seatData.deck_count > 1 && (
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '4px', backgroundColor: 'rgba(30, 41, 59, 0.6)', borderRadius: 'var(--radius-md)' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '4px', backgroundColor: '#f1f5f9', borderRadius: 'var(--radius-md)', border: '1px solid #e2e8f0' }}>
               {seatData.decks_available.map((d) => (
                 <button
                   key={d}
@@ -353,7 +334,7 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     backgroundColor: selectedDeck === d ? 'var(--primary)' : 'transparent',
-                    color: selectedDeck === d ? '#ffffff' : 'var(--text-muted)'
+                    color: selectedDeck === d ? '#ffffff' : '#475569'
                   }}
                 >
                   {d === 'lower' ? 'Lower Deck (Lower Berths)' : 'Upper Deck (Upper Berths)'}
@@ -419,10 +400,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               flexWrap: 'wrap', 
               gap: '12px', 
               fontSize: '0.72rem', 
-              color: 'var(--text-muted)',
+              color: '#334155',
               marginBottom: '16px',
               padding: '8px 12px',
-              backgroundColor: 'rgba(30, 41, 59, 0.4)',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0',
               borderRadius: 'var(--radius-sm)'
             }}
           >
@@ -431,16 +413,16 @@ export const SeatMap: React.FC<SeatMapProps> = ({
               <span>Booked (Locked)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(16, 185, 129, 0.25)', border: '1px solid #10b981' }} />
-              <span>Increase (+₹)</span>
+              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#ecfdf5', border: '1px solid #059669' }} />
+              <span style={{ color: '#047857', fontWeight: 600 }}>Increase (+₹)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(239, 68, 68, 0.25)', border: '1px solid #ef4444' }} />
-              <span>Decrease (-₹)</span>
+              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#fef2f2', border: '1px solid #dc2626' }} />
+              <span style={{ color: '#b91c1c', fontWeight: 600 }}>Decrease (-₹)</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: 'rgba(56, 189, 248, 0.2)', border: '1px solid #38bdf8' }} />
-              <span>Maintain (₹)</span>
+              <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#eff6ff', border: '1px solid #2563eb' }} />
+              <span style={{ color: '#1d4ed8', fontWeight: 600 }}>Maintain (₹)</span>
             </div>
           </div>
 
@@ -640,9 +622,9 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                     gap: '12px',
                     padding: '14px',
-                    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+                    backgroundColor: '#f8fafc',
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-subtle)',
+                    border: '1px solid #e2e8f0',
                     marginBottom: '16px'
                   }}
                 >
@@ -681,12 +663,37 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   </div>
 
                   <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Category Velocity</div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38bdf8', marginTop: '4px' }}>
-                      {recsBySeatId[selectedSeat.seat_id]?.booking_velocity || 0} seats/hr
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Selling Probability</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
+                      {recsBySeatId[selectedSeat.seat_id]?.selling_probability != null 
+                        ? `${Math.round((recsBySeatId[selectedSeat.seat_id]?.selling_probability || 0) * 100)}%` 
+                        : 'Baseline est.'}
                     </div>
                     <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)' }}>
-                      Category: {recsBySeatId[selectedSeat.seat_id]?.demand_category || 'Normal'} Demand
+                      Exp. Final Occ: {recsBySeatId[selectedSeat.seat_id]?.expected_final_occupancy_pct != null ? `${recsBySeatId[selectedSeat.seat_id]?.expected_final_occupancy_pct}%` : 'N/A'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Demand Level</div>
+                    <div style={{ marginTop: '4px' }}>
+                      <span 
+                        className={`badge ${
+                          (recsBySeatId[selectedSeat.seat_id]?.demand_level || recsBySeatId[selectedSeat.seat_id]?.demand_category) === 'High'
+                            ? 'badge-valid'
+                            : (recsBySeatId[selectedSeat.seat_id]?.demand_level || recsBySeatId[selectedSeat.seat_id]?.demand_category) === 'Low'
+                              ? 'badge-invalid'
+                              : (recsBySeatId[selectedSeat.seat_id]?.demand_level || recsBySeatId[selectedSeat.seat_id]?.demand_category) === 'Insufficient Data'
+                                ? 'badge-stale'
+                                : 'badge-medium'
+                        }`}
+                        style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                      >
+                        {recsBySeatId[selectedSeat.seat_id]?.demand_level || recsBySeatId[selectedSeat.seat_id]?.demand_category || 'Normal'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: '2px' }}>
+                      Velocity: {recsBySeatId[selectedSeat.seat_id]?.booking_velocity || 0} seats/hr
                     </div>
                   </div>
                 </div>
@@ -695,34 +702,34 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 <div 
                   style={{
                     padding: '12px 14px',
-                    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+                    backgroundColor: '#f8fafc',
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid rgba(51, 65, 85, 0.6)',
+                    border: '1px solid #e2e8f0',
                     marginBottom: '16px',
                     fontSize: '0.78rem'
                   }}
                 >
-                  <div style={{ fontWeight: 700, color: '#f8fafc', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Compass size={14} style={{ color: '#38bdf8' }} />
+                  <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Compass size={14} style={{ color: '#0284c7' }} />
                     <span>Seat &amp; Berth Configuration Profile</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', color: '#cbd5e1' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', color: '#334155' }}>
                     <div>
-                      Arrangement: <strong style={{ color: selectedSeat.sleeper_arrangement === 'single' ? '#fbbf24' : '#e2e8f0' }}>
+                      Arrangement: <strong style={{ color: selectedSeat.sleeper_arrangement === 'single' ? '#b45309' : '#0f172a' }}>
                         {selectedSeat.sleeper_arrangement === 'single' ? 'Single Private Sleeper (Solo)' : (selectedSeat.sleeper_arrangement === 'sharing' ? 'Sharing Sleeper (2-Occupants)' : 'Sitting Chair')}
                       </strong>
                     </div>
                     <div>
-                      Occupants &amp; Privacy: <strong>{selectedSeat.max_occupants || 1} passenger ({selectedSeat.privacy_level || 'standard'} privacy)</strong>
+                      Occupants &amp; Privacy: <strong style={{ color: '#0f172a' }}>{selectedSeat.max_occupants || 1} passenger ({selectedSeat.privacy_level || 'standard'} privacy)</strong>
                     </div>
                     <div>
-                      Deck &amp; Berth: <strong>{selectedSeat.deck?.toUpperCase()} deck &bull; {selectedSeat.berth_type?.toUpperCase()} berth</strong>
+                      Deck &amp; Berth: <strong style={{ color: '#0f172a' }}>{selectedSeat.deck?.toUpperCase()} deck &bull; {selectedSeat.berth_type?.toUpperCase()} berth</strong>
                     </div>
                     <div>
-                      Position: <strong>{selectedSeat.position?.toUpperCase()} row</strong> ({selectedSeat.bus_category} &bull; {selectedSeat.is_ac ? 'AC' : 'Non-AC'})
+                      Position: <strong style={{ color: '#0f172a' }}>{selectedSeat.position?.toUpperCase()} row</strong> ({selectedSeat.bus_category} &bull; {selectedSeat.is_ac ? 'AC' : 'Non-AC'})
                     </div>
                     {selectedSeat.booking_status === 'booked' && (
-                      <div style={{ gridColumn: '1 / -1', color: '#94a3b8', fontStyle: 'italic', marginTop: '2px' }}>
+                      <div style={{ gridColumn: '1 / -1', color: '#64748b', fontStyle: 'italic', marginTop: '2px' }}>
                         Booked: {selectedSeat.booked_at ? new Date(selectedSeat.booked_at).toLocaleString() : 'Confirmed passenger ticket'} &bull; Collected Fare: ₹{selectedSeat.collected_fare || selectedSeat.current_fare}
                       </div>
                     )}
@@ -733,88 +740,151 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 {recsBySeatId[selectedSeat.seat_id] && (
                   <div 
                     style={{
-                      padding: '12px 14px',
-                      backgroundColor: 'rgba(30, 41, 59, 0.4)',
+                      padding: '14px 16px',
+                      backgroundColor: '#f8fafc',
                       borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-subtle)',
+                      border: '1px solid var(--border-light)',
                       marginBottom: '16px',
-                      fontSize: '0.76rem'
+                      fontSize: '0.78rem'
                     }}
                   >
-                    <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <TrendingUp size={14} />
+                    <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <TrendingUp size={15} />
                       <span>Dynamic Pricing Factor Breakdown</span>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
-                      <div style={{ padding: '8px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '6px' }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>Arrangement Factor</div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].arrangement_factor_pct || 0) > 0 ? '#34d399' : '#e2e8f0' }}>
+                      <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600 }}>Arrangement Factor</div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].arrangement_factor_pct || 0) > 0 ? '#047857' : '#334155' }}>
                           {(recsBySeatId[selectedSeat.seat_id].arrangement_factor_pct || 0) > 0 ? '+' : ''}{recsBySeatId[selectedSeat.seat_id].arrangement_factor_pct || 0}%
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                           {selectedSeat.sleeper_arrangement === 'single' ? 'Private solo berth valuation' : 'Sharing berth baseline'}
                         </div>
                       </div>
 
-                      <div style={{ padding: '8px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '6px' }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>Journey Timing Factor</div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0) > 0 ? '#34d399' : ((recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0) < 0 ? '#f87171' : '#e2e8f0') }}>
+                      <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600 }}>Journey Timing Factor</div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0) > 0 ? '#047857' : ((recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0) < 0 ? '#b91c1c' : '#334155') }}>
                           {(recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0) > 0 ? '+' : ''}{recsBySeatId[selectedSeat.seat_id].timing_factor_pct || 0}%
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                           Speed premium backed by demand
                         </div>
                       </div>
 
-                      <div style={{ padding: '8px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '6px' }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>Quality &amp; Rating Factor</div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].quality_factor_pct || 0) > 0 ? '#34d399' : '#e2e8f0' }}>
+                      <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600 }}>Quality &amp; Rating Factor</div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: (recsBySeatId[selectedSeat.seat_id].quality_factor_pct || 0) > 0 ? '#047857' : '#334155' }}>
                           {(recsBySeatId[selectedSeat.seat_id].quality_factor_pct || 0) > 0 ? '+' : ''}{recsBySeatId[selectedSeat.seat_id].quality_factor_pct || 0}%
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                           Secondary willingness-to-pay
                         </div>
                       </div>
 
-                      <div style={{ padding: '8px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: '6px' }}>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>Competitor Category Median</div>
-                        <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#38bdf8' }}>
+                      <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 600 }}>Competitor Category Median</div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0284c7' }}>
                           ₹{recsBySeatId[selectedSeat.seat_id].competitor_median_for_category ? Math.round(recsBySeatId[selectedSeat.seat_id].competitor_median_for_category!) : 'N/A'}
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
                           Rival category matching
                         </div>
                       </div>
                     </div>
 
-                    {recsBySeatId[selectedSeat.seat_id].break_even_impact && (
-                      <div style={{ marginTop: '8px', fontSize: '0.72rem', color: '#e2e8f0', borderTop: '1px solid rgba(51, 65, 85, 0.4)', paddingTop: '6px' }}>
-                        <strong>Break-Even Requirement:</strong> {recsBySeatId[selectedSeat.seat_id].break_even_impact}
-                      </div>
-                    )}
+
                   </div>
                 )}
 
-                {/* Explanation Narrative */}
+                {/* FEATURE 4: Explainable Recommendation in Plain English */}
                 {recsBySeatId[selectedSeat.seat_id] && (
                   <div style={{ marginBottom: '16px' }}>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-                      Policy Rule &amp; Recommendation Explanation:
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        Explainable Recommendation Rationale
+                      </span>
+                      <span className={`badge ${recsBySeatId[selectedSeat.seat_id].confidence_score?.toLowerCase().includes('high') ? 'badge-valid' : 'badge-medium'}`}>
+                        Confidence: {recsBySeatId[selectedSeat.seat_id].confidence_score}
+                      </span>
                     </div>
+
                     <div 
                       style={{ 
-                        fontSize: '0.82rem', 
-                        color: 'var(--text-main)', 
-                        padding: '10px 14px', 
-                        backgroundColor: 'rgba(15, 23, 42, 0.4)', 
-                        borderRadius: 'var(--radius-sm)',
-                        borderLeft: '3px solid #38bdf8',
-                        lineHeight: 1.5
+                        fontSize: '0.84rem', 
+                        color: '#1e3a8a', 
+                        padding: '14px 16px', 
+                        backgroundColor: '#eff6ff', 
+                        borderRadius: 'var(--radius-md)',
+                        borderLeft: '4px solid #2563eb',
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-line',
+                        fontWeight: 500
                       }}
                     >
                       {recsBySeatId[selectedSeat.seat_id].explanation}
                     </div>
+
+                    {/* Observed Facts vs Forecast Assumptions */}
+                    {((recsBySeatId[selectedSeat.seat_id].observed_facts && recsBySeatId[selectedSeat.seat_id].observed_facts!.length > 0) ||
+                      (recsBySeatId[selectedSeat.seat_id].forecast_assumptions && recsBySeatId[selectedSeat.seat_id].forecast_assumptions!.length > 0)) && (
+                      <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {recsBySeatId[selectedSeat.seat_id].observed_facts && recsBySeatId[selectedSeat.seat_id].observed_facts!.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#047857', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <CheckCircle2 size={13} style={{ color: '#047857' }} />
+                              <span>Observed Facts (Actual Evidence)</span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {recsBySeatId[selectedSeat.seat_id].observed_facts!.map((fact, idx) => (
+                                <span 
+                                  key={idx}
+                                  style={{
+                                    fontSize: '0.73rem',
+                                    padding: '4px 9px',
+                                    backgroundColor: '#ecfdf5',
+                                    border: '1px solid #a7f3d0',
+                                    borderRadius: 'var(--radius-sm)',
+                                    color: '#047857',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  {fact}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {recsBySeatId[selectedSeat.seat_id].forecast_assumptions && recsBySeatId[selectedSeat.seat_id].forecast_assumptions!.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6d28d9', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>ℹ Modeling Assumptions (Predictive)</span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {recsBySeatId[selectedSeat.seat_id].forecast_assumptions!.map((assump, idx) => (
+                                <span 
+                                  key={idx}
+                                  style={{
+                                    fontSize: '0.73rem',
+                                    padding: '4px 9px',
+                                    backgroundColor: '#f5f3ff',
+                                    border: '1px solid #ddd6fe',
+                                    borderRadius: 'var(--radius-sm)',
+                                    color: '#6d28d9',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  {assump}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -825,15 +895,19 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                       <div 
                         key={idx}
                         style={{
-                          fontSize: '0.75rem',
-                          color: '#fbbf24',
+                          fontSize: '0.78rem',
+                          color: '#b45309',
+                          backgroundColor: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          padding: '6px 10px',
+                          borderRadius: 'var(--radius-sm)',
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px',
                           marginTop: '4px'
                         }}
                       >
-                        <AlertTriangle size={12} />
+                        <AlertTriangle size={14} />
                         <span>{w}</span>
                       </div>
                     ))}
@@ -871,14 +945,14 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     <Lock size={12} style={{ display: 'inline', marginRight: '4px' }} />
                     This seat is already booked. Passenger ticket contract is confirmed and cannot be altered.
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+              <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                 Click on any seat or berth on the cabin map to inspect pricing rationale, demand velocity, and operator approval controls.
               </div>
             )}
@@ -886,11 +960,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
           {/* COMPETITOR CATEGORY BENCHMARKS & MATCHING */}
           {seatData.competitor_category_benchmarks && (
-            <div className="card" style={{ padding: '20px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+            <div className="card" style={{ padding: '20px', border: '1px solid #bae6fd' }}>
               <div className="card-header" style={{ marginBottom: '12px' }}>
                 <div>
                   <div className="card-title" style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <SlidersHorizontal size={18} style={{ color: '#38bdf8' }} />
+                    <SlidersHorizontal size={18} style={{ color: 'var(--primary)' }} />
                     <span>Comparable Competitor Fare Matching</span>
                   </div>
                   <div className="card-subtitle">
@@ -899,54 +973,41 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 </div>
               </div>
 
-              {/* Notice that single private and sharing berths are strictly isolated */}
-              <div 
-                style={{
-                  padding: '8px 12px',
-                  backgroundColor: 'rgba(30, 41, 59, 0.5)',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.74rem',
-                  color: '#94a3b8',
-                  marginBottom: '12px',
-                  borderLeft: '3px solid #f59e0b'
-                }}
-              >
-                <strong>Category Isolation Rule:</strong> Single private sleepers and sharing berths are benchmarked as distinct categories to prevent false parity comparison. Slower routes are duration-adjusted.
-              </div>
+
 
               {/* Benchmarks Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '8px' }}>
                 {seatData.competitor_category_benchmarks.category_benchmarks?.single_sleeper && (
-                  <div style={{ padding: '10px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#fbbf24', fontWeight: 700 }}>Single Private Sleeper</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', marginTop: '2px' }}>
+                  <div style={{ padding: '10px 12px', backgroundColor: '#fffbeb', borderRadius: 'var(--radius-sm)', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#b45309', fontWeight: 700 }}>Single Private Sleeper</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#78350f', marginTop: '2px' }}>
                       ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.single_sleeper.median)}
                     </div>
-                    <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '0.68rem', color: '#92400e' }}>
                       Range: ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.single_sleeper.min)}–₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.single_sleeper.max)} ({seatData.competitor_category_benchmarks.category_benchmarks.single_sleeper.count} listings)
                     </div>
                   </div>
                 )}
 
                 {seatData.competitor_category_benchmarks.category_benchmarks?.sharing_sleeper && (
-                  <div style={{ padding: '10px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(148, 163, 184, 0.25)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#cbd5e1', fontWeight: 700 }}>Sharing Sleeper Berth</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', marginTop: '2px' }}>
+                  <div style={{ padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-heading)', fontWeight: 700 }}>Sharing Sleeper Berth</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-heading)', marginTop: '2px' }}>
                       ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sharing_sleeper.median)}
                     </div>
-                    <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                       Range: ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sharing_sleeper.min)}–₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sharing_sleeper.max)} ({seatData.competitor_category_benchmarks.category_benchmarks.sharing_sleeper.count} listings)
                     </div>
                   </div>
                 )}
 
                 {seatData.competitor_category_benchmarks.category_benchmarks?.sitting && (
-                  <div style={{ padding: '10px', backgroundColor: 'rgba(15, 23, 42, 0.6)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
-                    <div style={{ fontSize: '0.7rem', color: '#38bdf8', fontWeight: 700 }}>Sitting Chair Category</div>
-                    <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', marginTop: '2px' }}>
+                  <div style={{ padding: '10px 12px', backgroundColor: '#f0f9ff', borderRadius: 'var(--radius-sm)', border: '1px solid #bae6fd' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#0369a1', fontWeight: 700 }}>Sitting Chair Category</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0c4a6e', marginTop: '2px' }}>
                       ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sitting.median)}
                     </div>
-                    <div style={{ fontSize: '0.66rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '0.68rem', color: '#0369a1' }}>
                       Range: ₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sitting.min)}–₹{Math.round(seatData.competitor_category_benchmarks.category_benchmarks.sitting.max)} ({seatData.competitor_category_benchmarks.category_benchmarks.sitting.count} listings)
                     </div>
                   </div>
@@ -955,8 +1016,8 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
               {/* Comparability Warnings */}
               {seatData.competitor_category_benchmarks.comparability_warnings?.map((cw: string, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#fbbf24', marginTop: '4px' }}>
-                  <AlertTriangle size={12} />
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: '#b45309', marginTop: '4px' }}>
+                  <AlertTriangle size={13} />
                   <span>{cw}</span>
                 </div>
               ))}
@@ -965,11 +1026,11 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
           {/* FINANCIAL PERFORMANCE & EXPENSE BREAKDOWN */}
           {financials && (
-            <div className="card" style={{ padding: '20px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <div className="card" style={{ padding: '20px', border: '1px solid #a7f3d0' }}>
               <div className="card-header" style={{ marginBottom: '14px' }}>
                 <div>
                   <div className="card-title" style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Coins size={18} style={{ color: '#10b981' }} />
+                    <Coins size={18} style={{ color: '#047857' }} />
                     <span>Trip Financial Performance &amp; Profit Simulation</span>
                   </div>
                   <div className="card-subtitle">
@@ -978,20 +1039,20 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                 </div>
 
                 {/* Scenario Selector */}
-                <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(30, 41, 59, 0.6)', padding: '2px', borderRadius: 'var(--radius-sm)' }}>
+                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: 'var(--radius-sm)' }}>
                   {['Conservative', 'Base Case', 'Optimistic'].map((sc) => (
                     <button
                       key={sc}
                       onClick={() => setSelectedScenario(sc)}
                       style={{
-                        padding: '4px 8px',
+                        padding: '4px 10px',
                         fontSize: '0.72rem',
                         fontWeight: 600,
                         border: 'none',
-                        borderRadius: '3px',
+                        borderRadius: 'var(--radius-sm)',
                         cursor: 'pointer',
                         backgroundColor: selectedScenario === sc ? 'var(--primary)' : 'transparent',
-                        color: selectedScenario === sc ? '#fff' : 'var(--text-muted)'
+                        color: selectedScenario === sc ? '#fff' : 'var(--text-body)'
                       }}
                     >
                       {sc}
@@ -1007,54 +1068,54 @@ export const SeatMap: React.FC<SeatMapProps> = ({
                   gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
                   gap: '12px',
                   padding: '14px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                  backgroundColor: '#ecfdf5',
                   borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
+                  border: '1px solid #a7f3d0',
                   marginBottom: '16px'
                 }}
               >
                 <div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Verified Booked Rev</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Verified Booked Rev</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0284c7' }}>
                     ₹{financials.current_booked_revenue.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                     {financials.current_booked_seats} of {financials.capacity} seats confirmed
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Total Trip Expenses</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f87171' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Total Trip Expenses</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b91c1c' }}>
                     ₹{Math.round(financials.total_operating_expenses).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                     Fixed: ₹{Math.round(financials.expenses.total_fixed_expenses)} + 8% Comm
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Expected Net Profit</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Expected Net Profit</div>
                   <div 
                     style={{ 
-                      fontSize: '1.2rem', 
+                      fontSize: '1.25rem', 
                       fontWeight: 800, 
-                      color: (activeScenario?.net_profit || 0) >= 0 ? '#34d399' : '#f87171' 
+                      color: (activeScenario?.net_profit || 0) >= 0 ? '#047857' : '#b91c1c' 
                     }}
                   >
                     ₹{Math.round(activeScenario?.net_profit || financials.proposed_dynamic_plan.expected_net_profit).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                     Margin: {activeScenario?.profit_margin_pct || financials.proposed_dynamic_plan.profit_margin_pct}%
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Break-Even Occupancy</div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fbbf24' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>Break-Even Occupancy</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#b45309' }}>
                     {financials.break_even_occupancy_pct}%
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-dim)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                     Target: ₹{Math.round(financials.break_even_revenue).toLocaleString()}
                   </div>
                 </div>
@@ -1062,57 +1123,58 @@ export const SeatMap: React.FC<SeatMapProps> = ({
 
               {/* Plan Comparison Table: Current vs Proposed Dynamic */}
               <div style={{ marginBottom: '16px' }}>
-                <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
+                <table className="table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border-subtle)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '6px' }}>Pricing Plan</th>
-                      <th style={{ padding: '6px' }}>Forecast Addl. Bookings</th>
-                      <th style={{ padding: '6px' }}>Total Expected Revenue</th>
-                      <th style={{ padding: '6px' }}>Expected Net Profit</th>
-                      <th style={{ padding: '6px' }}>Profit Margin</th>
+                    <tr>
+                      <th>Pricing Plan</th>
+                      <th>Forecast Addl. Bookings</th>
+                      <th>Total Expected Revenue</th>
+                      <th>Expected Net Profit</th>
+                      <th>Profit Margin</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr style={{ borderBottom: '1px solid rgba(51, 65, 85, 0.4)' }}>
-                      <td style={{ padding: '6px', fontWeight: 600 }}>Current Fares Plan</td>
-                      <td style={{ padding: '6px' }}>+{financials.current_pricing_plan.expected_additional_bookings} seats</td>
-                      <td style={{ padding: '6px' }}>₹{Math.round(financials.current_pricing_plan.expected_total_revenue).toLocaleString()}</td>
-                      <td style={{ padding: '6px', color: financials.current_pricing_plan.expected_net_profit >= 0 ? '#34d399' : '#f87171' }}>
+                    <tr>
+                      <td style={{ fontWeight: 600 }}>Current Fares Plan</td>
+                      <td>+{financials.current_pricing_plan.expected_additional_bookings} seats</td>
+                      <td>₹{Math.round(financials.current_pricing_plan.expected_total_revenue).toLocaleString()}</td>
+                      <td style={{ fontWeight: 700, color: financials.current_pricing_plan.expected_net_profit >= 0 ? '#047857' : '#b91c1c' }}>
                         ₹{Math.round(financials.current_pricing_plan.expected_net_profit).toLocaleString()}
                       </td>
-                      <td style={{ padding: '6px' }}>{financials.current_pricing_plan.profit_margin_pct}%</td>
+                      <td>{financials.current_pricing_plan.profit_margin_pct}%</td>
                     </tr>
-                    <tr style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', fontWeight: 700 }}>
-                      <td style={{ padding: '6px', color: '#34d399' }}>Proposed Dynamic Plan</td>
-                      <td style={{ padding: '6px' }}>+{financials.proposed_dynamic_plan.expected_additional_bookings} seats</td>
-                      <td style={{ padding: '6px', color: '#38bdf8' }}>₹{Math.round(financials.proposed_dynamic_plan.expected_total_revenue).toLocaleString()}</td>
-                      <td style={{ padding: '6px', color: financials.proposed_dynamic_plan.expected_net_profit >= 0 ? '#34d399' : '#f87171' }}>
+                    <tr style={{ backgroundColor: '#ecfdf5', fontWeight: 700 }}>
+                      <td style={{ color: '#047857' }}>Proposed Dynamic Plan</td>
+                      <td style={{ color: '#047857' }}>+{financials.proposed_dynamic_plan.expected_additional_bookings} seats</td>
+                      <td style={{ color: '#0284c7' }}>₹{Math.round(financials.proposed_dynamic_plan.expected_total_revenue).toLocaleString()}</td>
+                      <td style={{ color: financials.proposed_dynamic_plan.expected_net_profit >= 0 ? '#047857' : '#b91c1c' }}>
                         ₹{Math.round(financials.proposed_dynamic_plan.expected_net_profit).toLocaleString()}
                       </td>
-                      <td style={{ padding: '6px' }}>{financials.proposed_dynamic_plan.profit_margin_pct}%</td>
+                      <td style={{ color: '#047857' }}>{financials.proposed_dynamic_plan.profit_margin_pct}%</td>
                     </tr>
                   </tbody>
                 </table>
 
-                <div style={{ marginTop: '8px', fontSize: '0.74rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <TrendingUp size={13} />
+                <div style={{ marginTop: '10px', fontSize: '0.78rem', color: '#047857', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                  <TrendingUp size={14} />
                   <span>
                     Simulated Variance: <strong>+₹{Math.round(financials.proposed_dynamic_plan.revenue_lift)} revenue lift</strong> (&bull; ₹{Math.round(financials.proposed_dynamic_plan.profit_lift)} profit lift)
                   </span>
                 </div>
               </div>
 
-              {/* Operating Expenses Breakdown (Togglable/Summary) */}
+              {/* Operating Expenses Breakdown (Summary) */}
               <div 
                 style={{ 
-                  padding: '10px 14px', 
-                  backgroundColor: 'rgba(15, 23, 42, 0.4)', 
+                  padding: '12px 14px', 
+                  backgroundColor: '#f8fafc', 
                   borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.74rem',
-                  color: 'var(--text-muted)'
+                  fontSize: '0.76rem',
+                  color: 'var(--text-body)',
+                  border: '1px solid var(--border-light)'
                 }}
               >
-                <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-heading)', marginBottom: '4px' }}>
                   Trip Expense Composition:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '6px' }}>

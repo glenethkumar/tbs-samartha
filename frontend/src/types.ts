@@ -374,10 +374,15 @@ export interface SeatRecommendation {
   rule_applied: string;
   explanation: string;
   demand_category: string;
+  demand_level?: string | null;
   booking_velocity: number;
+  selling_probability?: number | null;
+  expected_final_occupancy_pct?: number | null;
   competitor_median_for_category?: number | null;
   confidence_score: string;
   warnings: string[];
+  observed_facts?: string[];
+  forecast_assumptions?: string[];
   decision_status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'OVERRIDDEN' | string;
   approved_fare?: number | null;
   created_at: string;
@@ -385,6 +390,219 @@ export interface SeatRecommendation {
   quality_factor_pct?: number;
   arrangement_factor_pct?: number;
   break_even_impact?: string;
+}
+
+export interface WhatIfSimulateRequest {
+  manual_target_fare?: number | null;
+  manual_adjustment_pct?: number | null;
+  custom_seat_fares?: Record<string, number> | null;
+  expense_overrides?: Record<string, number> | null;
+  scenario_type?: 'expected' | 'conservative' | 'optimistic' | string;
+}
+
+export interface WhatIfPlanMetrics {
+  label: string;
+  average_available_fare: number;
+  expected_additional_bookings: number;
+  expected_final_occupancy_pct: number;
+  gross_ticket_sales: number;
+  discounts_and_refunds: number;
+  net_ticket_revenue: number;
+  platform_commission: number;
+  operating_expenses: number;
+  operating_profit_loss: number;
+  profit_margin_pct: number;
+  revenue_per_occupied_seat: number;
+  revenue_difference_vs_current?: number;
+  profit_difference_vs_current?: number;
+  is_profitable: boolean;
+  scenario_type?: string;
+  warnings?: string[];
+}
+
+export interface WhatIfSimulateResponse {
+  trip_id: string;
+  total_seats: number;
+  actual_booked_seats: number;
+  actual_booked_revenue: number;
+  actual_occupancy_pct: number;
+  break_even_revenue: number;
+  break_even_occupancy_pct: number;
+  expenses: Record<string, any>;
+  scenarios_comparison: {
+    current_pricing: WhatIfPlanMetrics;
+    recommended_pricing: WhatIfPlanMetrics;
+    manual_alternative: WhatIfPlanMetrics;
+  };
+  multi_case_forecasts: Array<{
+    name: string;
+    description: string;
+    expected_additional_bookings: number;
+    expected_final_occupancy_pct: number;
+    gross_sales: number;
+    net_revenue: number;
+    expenses: number;
+    operating_profit: number;
+    margin_pct: number;
+  }>;
+  assumptions_explained: string[];
+}
+
+export interface CompetitorTimelinePoint {
+  date: string;
+  median_fare: number;
+  min_fare: number;
+  max_fare: number;
+  average_fare: number;
+  our_fare: number;
+  sample_count: number;
+  operator_fares: Record<string, number>;
+  difference_vs_our_fare: number;
+}
+
+export interface CompetitorPriceShift {
+  operator_name: string;
+  platform: string;
+  earliest_fare: number;
+  latest_fare: number;
+  fare_difference: number;
+  fare_difference_pct: number;
+  shift_type: 'INCREASE' | 'DECREASE' | string;
+  is_unusual_movement: boolean;
+  earliest_date: string;
+  latest_date: string;
+}
+
+export interface CompetitorTrendResponse {
+  trip_id: string;
+  origin: string;
+  destination: string;
+  our_current_fare: number;
+  trend_days: number;
+  total_observations: number;
+  overall_comparable_median: number;
+  overall_comparable_min: number;
+  overall_comparable_max: number;
+  our_fare_vs_median_diff: number;
+  timeline: CompetitorTimelinePoint[];
+  recent_price_shifts: CompetitorPriceShift[];
+  incomparable_services: Array<{
+    operator_name: string;
+    platform: string;
+    fare: number;
+    reason: string;
+  }>;
+  is_stale: boolean;
+  last_captured_at?: string;
+  freshness_status: string;
+  warnings: string[];
+}
+
+export interface OperationalAlert {
+  alert_id: string;
+  trip_id?: string | null;
+  seat_id?: string | null;
+  seat_number?: string | null;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' | string;
+  category: string;
+  title: string;
+  message: string;
+  status: 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED' | string;
+  created_at: string;
+  acknowledged_at?: string | null;
+  resolved_at?: string | null;
+  acknowledged_by?: string | null;
+}
+
+export interface DailyReportTripSummary {
+  trip_id: string;
+  route_name: string;
+  departure_time: string;
+  total_seats: number;
+  booked_seats: number;
+  occupancy_pct: number;
+  collected_revenue: number;
+  expenses: number;
+  actual_net_profit: number;
+  status: string;
+  forecast_revenue?: number | null;
+  forecast_occupancy_pct?: number | null;
+  forecast_error_revenue?: number | null;
+  data_reliable: boolean;
+}
+
+export interface DailyOperationsReport {
+  report_date: string;
+  total_trips: number;
+  completed_trips: number;
+  upcoming_trips: number;
+  total_seats: number;
+  total_booked_seats: number;
+  overall_occupancy_pct: number;
+  actual_ticket_revenue: number;
+  discounts_and_refunds: number;
+  total_operating_expenses: number;
+  actual_operating_profit: number;
+  profit_margin_pct: number;
+  forecast_vs_actual: {
+    forecast_total_revenue: number;
+    actual_total_revenue: number;
+    revenue_variance: number;
+    forecast_avg_occupancy_pct: number;
+    actual_avg_occupancy_pct: number;
+    occupancy_variance_pct: number;
+  };
+  pending_recommendations_count: number;
+  active_alerts_count: number;
+  unreliable_data_trips_count: number;
+  trips: DailyReportTripSummary[];
+  notice: string;
+}
+
+export interface PerformanceSummary {
+  total_recommendations: number;
+  approved_count: number;
+  rejected_count: number;
+  overridden_count: number;
+  pending_count: number;
+  approval_rate_pct: number;
+  completed_trips_evaluated: number;
+  revenue_forecast_metrics: {
+    sample_size: number;
+    mean_absolute_error: number;
+    mean_absolute_pct_error: number;
+    direction_accuracy_pct: number;
+  };
+  occupancy_forecast_metrics: {
+    sample_size: number;
+    mean_absolute_error: number;
+    mean_absolute_pct_error: number;
+  };
+  profit_forecast_metrics?: {
+    sample_size: number;
+    mean_absolute_error: number;
+    mean_absolute_pct_error: number;
+  } | null;
+  route_performance: Record<string, {
+    total_recs: number;
+    approved: number;
+    revenue_mae?: number | null;
+    revenue_mape?: number | null;
+  }>;
+  category_performance: Record<string, {
+    total_recs: number;
+    approved: number;
+    revenue_mae?: number | null;
+    revenue_mape?: number | null;
+  }>;
+  common_override_reasons: Array<{
+    reason: string;
+    count: number;
+  }>;
+  data_confidence: {
+    status: string;
+    notes: string;
+  };
 }
 
 export interface TripExpense {

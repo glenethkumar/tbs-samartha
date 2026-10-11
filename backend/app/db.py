@@ -256,6 +256,91 @@ def init_db() -> None:
             );
         """)
 
+        # 10. Competitor fare history table (Historical tracking over time)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS competitor_fare_history (
+                history_id TEXT PRIMARY KEY,
+                competitor_fare_id TEXT,
+                trip_id TEXT,
+                origin TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                route_name TEXT,
+                departure_time TEXT NOT NULL,
+                bus_type TEXT NOT NULL,
+                operator_name TEXT NOT NULL,
+                platform TEXT NOT NULL,
+                fare REAL NOT NULL,
+                additional_fees REAL DEFAULT 0.0,
+                seat_type TEXT DEFAULT 'sleeper',
+                berth_type TEXT DEFAULT 'lower',
+                sleeper_arrangement TEXT DEFAULT 'single',
+                is_comparable INTEGER DEFAULT 1,
+                incomparability_reason TEXT DEFAULT '',
+                captured_at TEXT NOT NULL,
+                freshness_status TEXT DEFAULT 'fresh',
+                data_source_label TEXT DEFAULT 'Synthetic competitor observation history'
+            );
+        """)
+
+        # 11. Operational alerts table (Alert management, deduplication, resolution)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS operational_alerts (
+                alert_id TEXT PRIMARY KEY,
+                trip_id TEXT NOT NULL,
+                seat_id TEXT,
+                severity TEXT NOT NULL, -- 'CRITICAL', 'WARNING', 'INFO'
+                alert_type TEXT NOT NULL, -- 'LOW_OCCUPANCY', 'PROJECTED_LOSS', 'UNUSUAL_VELOCITY', 'COMPETITOR_SHIFT', 'STALE_COMPETITOR', 'INSUFFICIENT_DATA', 'LIMIT_EXCEEDED', 'UNPROFITABLE_DISCOUNT', 'PENDING_APPROVAL', 'MISSING_EXPENSES'
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'ACTIVE', -- 'ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'
+                created_at TEXT NOT NULL,
+                acknowledged_at TEXT,
+                acknowledged_by TEXT,
+                resolved_at TEXT,
+                resolved_by TEXT,
+                FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
+            );
+        """)
+
+        # 12. Recommendation snapshots table (Performance tracking & forecast vs actual)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recommendation_snapshots (
+                snapshot_id TEXT PRIMARY KEY,
+                recommendation_id TEXT NOT NULL,
+                trip_id TEXT NOT NULL,
+                seat_id TEXT,
+                seat_number TEXT,
+                category_key TEXT,
+                current_fare REAL NOT NULL,
+                proposed_fare REAL NOT NULL,
+                forecast_bookings INTEGER,
+                forecast_occupancy_pct REAL,
+                forecast_revenue REAL,
+                forecast_expenses REAL,
+                forecast_profit REAL,
+                scenario_assumptions TEXT, -- JSON string
+                confidence_score TEXT,
+                created_at TEXT NOT NULL,
+                decision_status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'APPROVED', 'REJECTED', 'OVERRIDDEN', 'EXPIRED'
+                applied_fare REAL,
+                effective_at TEXT,
+                decision_reason TEXT,
+                actor_label TEXT,
+                is_trip_completed INTEGER NOT NULL DEFAULT 0,
+                completed_at TEXT,
+                actual_bookings INTEGER,
+                actual_occupancy_pct REAL,
+                actual_revenue REAL,
+                actual_refunds_discounts REAL DEFAULT 0.0,
+                actual_expenses REAL,
+                actual_profit REAL,
+                forecast_error_revenue REAL,
+                forecast_error_occupancy REAL,
+                forecast_error_pct REAL,
+                FOREIGN KEY (trip_id) REFERENCES trips (trip_id) ON DELETE CASCADE
+            );
+        """)
+
         # Schema migrations for existing databases
         migrations = [
             ("trips", "scheduled_arrival_time", "TEXT"),
@@ -309,6 +394,9 @@ def reset_and_seed_database() -> None:
     """Drops and re-populates tables with seed data."""
     with get_connection() as conn:
         cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS recommendation_snapshots;")
+        cursor.execute("DROP TABLE IF EXISTS operational_alerts;")
+        cursor.execute("DROP TABLE IF EXISTS competitor_fare_history;")
         cursor.execute("DROP TABLE IF EXISTS seat_recommendations;")
         cursor.execute("DROP TABLE IF EXISTS trip_seats;")
         cursor.execute("DROP TABLE IF EXISTS trip_expenses;")
@@ -322,3 +410,4 @@ def reset_and_seed_database() -> None:
     init_db()
     from app.seed import seed_data
     seed_data()
+

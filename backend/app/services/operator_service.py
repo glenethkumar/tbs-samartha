@@ -258,6 +258,11 @@ class OperatorService:
                         SET decision_status = 'APPROVED', approved_fare = ?
                         WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
                     """, (target_fare, trip_id, sid))
+                    cursor.execute("""
+                        UPDATE recommendation_snapshots
+                        SET decision_status = 'APPROVED', applied_fare = ?, decision_reason = ?, actor_label = ?, effective_at = ?
+                        WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
+                    """, (target_fare, reason or "Operator approved recommendation", actor_label, now_str, trip_id, sid))
                     updated_count += 1
 
                 elif dtype == "REJECTED":
@@ -266,6 +271,11 @@ class OperatorService:
                         SET decision_status = 'REJECTED'
                         WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
                     """, (trip_id, sid))
+                    cursor.execute("""
+                        UPDATE recommendation_snapshots
+                        SET decision_status = 'REJECTED', decision_reason = ?, actor_label = ?, effective_at = ?
+                        WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
+                    """, (reason or "Operator rejected recommendation", actor_label, now_str, trip_id, sid))
                     updated_count += 1
 
                 elif dtype == "OVERRIDDEN":
@@ -276,6 +286,11 @@ class OperatorService:
                         SET decision_status = 'OVERRIDDEN', approved_fare = ?
                         WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
                     """, (target_fare, trip_id, sid))
+                    cursor.execute("""
+                        UPDATE recommendation_snapshots
+                        SET decision_status = 'OVERRIDDEN', applied_fare = ?, decision_reason = ?, actor_label = ?, effective_at = ?
+                        WHERE trip_id = ? AND seat_id = ? AND decision_status = 'PENDING';
+                    """, (target_fare, reason, actor_label, now_str, trip_id, sid))
                     updated_count += 1
 
             # Recalculate trip average current fare
@@ -283,6 +298,7 @@ class OperatorService:
             new_avg_fare = cursor.fetchone()[0]
             if new_avg_fare is not None:
                 new_avg_rounded = round(float(new_avg_fare) / 10.0) * 10.0
+
                 cursor.execute("UPDATE trips SET current_fare = ?, data_updated_at = ? WHERE trip_id = ?;", (new_avg_rounded, now_str, trip_id))
 
             # Audit event

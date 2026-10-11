@@ -130,9 +130,9 @@ export const Overview: React.FC<OverviewProps> = ({ onSelectTrip, onNavigateTab 
               <Bus size={18} />
             </div>
           </div>
-          <div className="stat-value">{summary.total_trips}</div>
+          <div className="stat-value font-mono">{summary.total_trips}</div>
           <div className="stat-footer">
-            <span className="trend-badge neutral">
+            <span className="trend-badge neutral font-mono">
               {summary.upcoming_trips} Upcoming
             </span>
             <span>in current schedule window</span>
@@ -147,9 +147,9 @@ export const Overview: React.FC<OverviewProps> = ({ onSelectTrip, onNavigateTab 
               <Users size={18} />
             </div>
           </div>
-          <div className="stat-value">{summary.total_booked_seats}</div>
+          <div className="stat-value font-mono">{summary.total_booked_seats}</div>
           <div className="stat-footer">
-            <span className="trend-badge positive">
+            <span className="trend-badge positive font-mono">
               {Math.round((summary.total_booked_seats / (summary.total_booked_seats + summary.total_available_seats)) * 100)}% Capacity
             </span>
             <span>total reserved seats</span>
@@ -164,7 +164,7 @@ export const Overview: React.FC<OverviewProps> = ({ onSelectTrip, onNavigateTab 
               <Percent size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ color: '#0284c7' }}>{summary.total_available_seats}</div>
+          <div className="stat-value font-mono" style={{ color: '#0284c7' }}>{summary.total_available_seats}</div>
           <div className="stat-footer">
             <span className="trend-badge neutral" style={{ background: '#f0f9ff', color: '#0284c7' }}>
               Vacant
@@ -181,10 +181,10 @@ export const Overview: React.FC<OverviewProps> = ({ onSelectTrip, onNavigateTab 
               <TrendingUp size={18} />
             </div>
           </div>
-          <div className="stat-value" style={{ color: '#7c3aed' }}>{summary.average_occupancy_pct}%</div>
+          <div className="stat-value font-mono" style={{ color: '#7c3aed' }}>{summary.average_occupancy_pct}%</div>
           <div className="stat-footer">
             {summary.trips_needing_review > 0 ? (
-              <span className="trend-badge warning">
+              <span className="trend-badge warning font-mono">
                 <AlertTriangle size={12} /> {summary.trips_needing_review} Need Review
               </span>
             ) : (

@@ -25,12 +25,15 @@ import {
   FileSpreadsheet,
   RotateCcw,
   Star,
-  Layers
+  Layers,
+  Calculator
 } from 'lucide-react';
 import type { Trip, CompetitorPriceSummary, CompetitorCsvImportResult, SeatMapData, TripFinancials } from '../types';
 import { api } from '../api';
 import { DecisionModal } from './DecisionModal';
 import { SeatMap } from './SeatMap';
+import { WhatIfSimulator } from './WhatIfSimulator';
+import { CompetitorTrends } from './CompetitorTrends';
 
 interface TripDetailProps {
   tripId: string;
@@ -47,7 +50,7 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
   const [whyExpanded, setWhyExpanded] = useState(true);
 
   // Seat-level pricing & layout state
-  const [activeTab, setActiveTab] = useState<'seats' | 'pricing'>('seats');
+  const [activeTab, setActiveTab] = useState<'seats' | 'what-if' | 'trends' | 'pricing'>('seats');
   const [seatData, setSeatData] = useState<SeatMapData | null>(null);
   const [financials, setFinancials] = useState<TripFinancials | null>(null);
 
@@ -256,8 +259,9 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
               {trip.average_rating && (
                 <>
                   <span>&bull;</span>
-                  <span style={{ color: '#fbbf24', fontWeight: 600 }}>
-                    ★ {trip.average_rating.toFixed(1)} ({trip.review_count?.toLocaleString()} reviews)
+                  <span style={{ color: '#d97706', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <Star size={13} style={{ fill: '#d97706', color: '#d97706' }} />
+                    <span className="font-mono">{trip.average_rating.toFixed(1)}</span> ({trip.review_count?.toLocaleString()} reviews)
                   </span>
                 </>
               )}
@@ -317,35 +321,20 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
         </div>
       )}
 
-      {/* View Navigation Tabs: Seat Map & Revenue Simulation vs Trip Pricing & Market Intelligence */}
-      <div 
-        style={{ 
-          display: 'flex', 
-          gap: '8px', 
-          borderBottom: '1px solid var(--border-subtle)', 
-          marginBottom: '16px',
-          marginTop: '6px'
-        }}
-      >
+      {/* View Navigation Tabs: Segmented Control Bar */}
+      <div className="sub-nav-bar">
         <button
           id="tab-seat-map"
-          className={`btn ${activeTab === 'seats' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`sub-nav-tab ${activeTab === 'seats' ? 'active' : ''}`}
           onClick={() => setActiveTab('seats')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '10px 18px', 
-            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
-            borderBottom: activeTab === 'seats' ? '2px solid #38bdf8' : 'none'
-          }}
         >
           <Layers size={16} />
-          <span style={{ fontWeight: 600 }}>Seat Map & Revenue Simulation</span>
+          <span>Seat Map & Demand</span>
           {seatData && (
             <span style={{ 
               fontSize: '0.72rem', 
-              background: 'rgba(255,255,255,0.2)', 
+              background: activeTab === 'seats' ? 'rgba(255,255,255,0.25)' : 'var(--bg-app)', 
+              color: activeTab === 'seats' ? '#ffffff' : 'var(--text-body)',
               padding: '2px 8px', 
               borderRadius: '9999px',
               fontWeight: 700
@@ -355,20 +344,28 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
           )}
         </button>
         <button
+          id="tab-what-if"
+          className={`sub-nav-tab ${activeTab === 'what-if' ? 'active' : ''}`}
+          onClick={() => setActiveTab('what-if')}
+        >
+          <Calculator size={16} />
+          <span>What-If Simulator</span>
+        </button>
+        <button
+          id="tab-competitor-trends"
+          className={`sub-nav-tab ${activeTab === 'trends' ? 'active' : ''}`}
+          onClick={() => setActiveTab('trends')}
+        >
+          <TrendingUp size={16} />
+          <span>Competitor Trends</span>
+        </button>
+        <button
           id="tab-trip-pricing"
-          className={`btn ${activeTab === 'pricing' ? 'btn-primary' : 'btn-secondary'}`}
+          className={`sub-nav-tab ${activeTab === 'pricing' ? 'active' : ''}`}
           onClick={() => setActiveTab('pricing')}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '10px 18px', 
-            borderRadius: 'var(--radius-md) var(--radius-md) 0 0',
-            borderBottom: activeTab === 'pricing' ? '2px solid #38bdf8' : 'none'
-          }}
         >
           <SlidersHorizontal size={16} />
-          <span style={{ fontWeight: 600 }}>Trip Pricing & Market Intelligence</span>
+          <span>Trip Pricing & Market Intelligence</span>
         </button>
       </div>
 
@@ -386,6 +383,14 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
             <p style={{ color: 'var(--text-muted)' }}>Loading seat inventory and layout...</p>
           </div>
         )
+      )}
+
+      {activeTab === 'what-if' && (
+        <WhatIfSimulator tripId={tripId} trip={trip} />
+      )}
+
+      {activeTab === 'trends' && (
+        <CompetitorTrends tripId={tripId} trip={trip} />
       )}
 
       {activeTab === 'pricing' && (
@@ -510,15 +515,15 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                   style={{
                     padding: '12px 16px',
                     borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'rgba(31, 41, 55, 0.4)',
-                    border: '1px solid var(--border-subtle)',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
                     minWidth: '160px'
                   }}
                 >
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     Snapshot #{idx + 1}
                   </div>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38bdf8', margin: '4px 0' }}>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0284c7', margin: '4px 0' }}>
                     {snap.booked_seats} seats
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
@@ -1063,7 +1068,7 @@ export const TripDetail: React.FC<TripDetailProps> = ({ tripId, onBack, onRefres
                     : (trip.snapshots && trip.snapshots.length >= 2 ? 'Strong data' : 'Limited data')
                 );
                 return (
-                  <div style={{ padding: '20px', backgroundColor: 'rgba(15, 23, 42, 0.4)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ padding: '20px', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {/* Primary narrative summary */}
                     <div style={{ padding: '14px 18px', backgroundColor: 'var(--bg-input)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', lineHeight: 1.6, fontSize: '0.88rem' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>

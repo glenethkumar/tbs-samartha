@@ -383,3 +383,73 @@ class SeatMapResponse(BaseModel):
     seat_recommendations: List[SeatRecommendationModel]
     category_summaries: Dict[str, Any]
     competitor_category_benchmarks: Dict[str, Any]
+
+
+class WhatIfSimulateRequest(BaseModel):
+    manual_target_fare: Optional[float] = None
+    manual_adjustment_pct: Optional[float] = None
+    custom_seat_fares: Optional[Dict[str, float]] = None
+    expense_overrides: Optional[Dict[str, float]] = None
+    scenario_type: str = "Base Case"  # "Conservative", "Base Case", "Optimistic"
+
+
+class OperationalAlertModel(BaseModel):
+    alert_id: str
+    trip_id: str
+    seat_id: Optional[str] = None
+    severity: str  # 'CRITICAL', 'WARNING', 'INFO'
+    alert_type: str
+    title: str
+    message: str
+    status: str = "ACTIVE"  # 'ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'
+    created_at: str
+    acknowledged_at: Optional[str] = None
+    acknowledged_by: Optional[str] = None
+    resolved_at: Optional[str] = None
+    resolved_by: Optional[str] = None
+
+
+class DailyReportSummary(BaseModel):
+    report_date: str
+    generated_at: str
+    total_trips: int
+    completed_trips: int
+    active_trips: int
+    total_capacity: int
+    booked_seats: int
+    available_seats: int
+    average_occupancy_pct: float
+    actual_collected_revenue: float
+    recorded_discounts_refunds: float
+    total_operating_expenses: float
+    net_operating_profit: float
+    overall_profit_margin_pct: float
+    forecast_total_revenue: float
+    forecast_net_profit: float
+    active_alerts_count: int
+    pending_recommendations_count: int
+    trips_with_unreliable_data: int
+    trip_summaries: List[Dict[str, Any]] = []
+    disclaimer: str = "AUDITED OPERATIONAL REPORT. Distinguishes realized transactions from predictive forecasts."
+
+
+class PerformanceSummaryModel(BaseModel):
+    total_recommendations: int
+    approved_count: int
+    rejected_count: int
+    overridden_count: int
+    pending_count: int
+    approval_rate_pct: float
+    completed_trips_evaluated: int
+    mean_absolute_error_revenue: float
+    mean_absolute_percentage_error_occ: float
+    revenue_forecast_accuracy_pct: float
+    forecast_vs_actual_revenue: Dict[str, float]
+    forecast_vs_actual_occupancy: Dict[str, float]
+    forecast_vs_actual_profit: Dict[str, float]
+    route_accuracy: List[Dict[str, Any]] = []
+    category_accuracy: List[Dict[str, Any]] = []
+    common_override_reasons: List[Dict[str, Any]] = []
+    data_completeness_indicator: str
+    disclaimer: str = "HISTORICAL RECOMMENDATION OUTCOME EVALUATION. Evaluates predictive forecast fidelity against completed trip realization."
+

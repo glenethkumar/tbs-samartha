@@ -337,12 +337,47 @@ class SeatPricingPolicy:
             else:
                 break_even_impact = f"Trip revenue covers operating expenses (projected surplus ₹{est_total_rev - fixed_expenses:.0f})."
 
-            rule_name = f"Multi-Factor Seat Dynamic Policy ({adj_pct:+.1f}% total: base {base_adj:+.1f}%, arr {arrangement_adj:+.1f}%, timing {timing_adj:+.1f}%, qual {quality_adj:+.1f}%, comp {comp_adj:+.1f}%)"
-            explanation = (
-                f"Action: {action}. Suggested fare: ₹{final_fare:.0f} (current: ₹{curr_fare:.0f}, base: ₹{base_fare:.0f}). "
-                f"Signals: {'; '.join(reasons)}. "
-                f"Floor: ₹{min_fare:.0f}, Ceiling: ₹{max_fare:.0f}."
+            selling_prob = cat_data.get("selling_probability", 0.50)
+            exp_final_occ = cat_data.get("expected_final_occupancy_pct", round(trip_occupancy_pct, 1))
+
+            # Derive confidence tier
+            if confidence == "Data-backed estimate":
+                conf_level = "High" if cat_velocity > 0.3 else "Medium"
+            elif confidence == "Insufficient Data (Scenario Baseline)":
+                conf_level = "Insufficient Data"
+            else:
+                conf_level = "Medium" if trip_occupancy_pct >= 40.0 else "Low"
+
+            # Plain English structured explanation
+            evidence_summary = (
+                f"Booking records (category {cat_occupancy:.0f}% booked, {cat_velocity} seats/hr velocity) "
+                f"and competitor benchmarks ({'median ₹' + str(int(comp_cat_median)) if comp_cat_median else 'no comparable competitor data'})."
             )
+            rule_name = f"Multi-Factor Seat Dynamic Policy ({adj_pct:+.1f}% total: base {base_adj:+.1f}%, arr {arrangement_adj:+.1f}%, timing {timing_adj:+.1f}%, qual {quality_adj:+.1f}%, comp {comp_adj:+.1f}%)"
+            
+            explanation = (
+                f"Recommended action: {action}.\n\n"
+                f"Reason: {'; '.join(reasons)}. Estimated selling probability is {int(selling_prob * 100)}% with expected category final occupancy of {exp_final_occ:.0f}%.\n\n"
+                f"Confidence: {conf_level}.\n\n"
+                f"Evidence: {evidence_summary}"
+            )
+
+            observed_facts = [
+                f"Current fare: ₹{curr_fare:.0f} (Base fare: ₹{base_fare:.0f})",
+                f"Permitted limits: Floor ₹{min_fare:.0f}, Ceiling ₹{max_fare:.0f}",
+                f"Category occupancy: {cat_occupancy:.0f}% ({cat_data.get('booked_seats', 0)} of {cat_data.get('total_seats', 0)} booked)",
+                f"Booking velocity: {cat_velocity} seats/hr in recent window",
+                f"Sleeper arrangement: {s_arr.capitalize() if s_arr != 'none' else 'Sitting'}",
+                f"Position / Berth: {pos.capitalize()} / {berth.capitalize()}",
+                f"Competitor category benchmark: ₹{comp_cat_median:.0f}" if comp_cat_median else "Competitor benchmark: Unavailable"
+            ]
+
+            forecast_assumptions = [
+                f"Price elasticity assumption: -0.5 on fare change of {adj_pct:+.1f}%",
+                f"Estimated selling probability: {int(selling_prob * 100)}%",
+                f"Projected category final occupancy: {exp_final_occ:.0f}%",
+                f"Break-even revenue requirement: ₹{break_even_rev:.0f}"
+            ]
 
             seat_recs.append({
                 "seat_recommendation_id": f"REC-S-{uuid.uuid4().hex[:8].upper()}",
@@ -360,8 +395,12 @@ class SeatPricingPolicy:
                 "explanation": explanation,
                 "demand_category": cat_demand,
                 "booking_velocity": cat_velocity,
+                "selling_probability": selling_prob,
+                "expected_final_occupancy_pct": exp_final_occ,
                 "competitor_median_for_category": comp_cat_median,
-                "confidence_score": confidence,
+                "confidence_score": conf_level,
+                "observed_facts": observed_facts,
+                "forecast_assumptions": forecast_assumptions,
                 "warnings": warnings,
                 "decision_status": "PENDING",
                 "approved_fare": None,
@@ -373,6 +412,7 @@ class SeatPricingPolicy:
             })
 
         return seat_recs
+
 
     @staticmethod
     def persist_seat_recommendations(seat_recs: List[Dict[str, Any]]) -> None:
@@ -406,7 +446,29 @@ class SeatPricingPolicy:
                     r.get("timing_factor_pct", 0.0), r.get("quality_factor_pct", 0.0),
                     r.get("arrangement_factor_pct", 0.0), r.get("break_even_impact", "")
                 ))
+
+                # Feature 6: Capture snapshot for recommendation performance tracking
+                snap_id = f"SNAP-{r['seat_recommendation_id'][-8:]}"
+                assump_json = json.dumps(r.get("forecast_assumptions", []))
+                cursor.execute("""
+                    INSERT OR REPLACE INTO recommendation_snapshots (
+                        snapshot_id, recommendation_id, trip_id, seat_id, seat_number,
+                        category_key, current_fare, proposed_fare, forecast_bookings,
+                        forecast_occupancy_pct, forecast_revenue, forecast_expenses,
+                        forecast_profit, scenario_assumptions, confidence_score,
+                        created_at, decision_status
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    );
+                """, (
+                    snap_id, r["recommendation_id"], r["trip_id"], r["seat_id"], r["seat_number"],
+                    r["category_key"], r["current_fare"], r["recommended_fare"], 1,
+                    r.get("expected_final_occupancy_pct", 75.0), r["recommended_fare"], 380.0,
+                    r["recommended_fare"] - 380.0, assump_json, r["confidence_score"],
+                    r["created_at"], r["decision_status"]
+                ))
             conn.commit()
+
 
     @staticmethod
     def get_latest_seat_recommendations(trip_id: str) -> List[Dict[str, Any]]:

@@ -142,10 +142,29 @@ class SeatDemandService:
             else:
                 cat["available_seats"] += 1
 
+        # Fetch trip and snapshot history
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM trips WHERE trip_id = ?;", (trip_id,))
+            trip_row = cursor.fetchone()
+            cursor.execute("SELECT COUNT(*) FROM booking_snapshots WHERE trip_id = ?;", (trip_id,))
+            snap_count = cursor.fetchone()[0]
+        trip_data = dict(trip_row) if trip_row else {}
+
+        # Calculate time remaining to departure
+        hours_until_dep = 12.0
+        if trip_data.get("departure_time"):
+            try:
+                dep_dt = datetime.fromisoformat(trip_data["departure_time"].replace("Z", "+00:00"))
+                hours_until_dep = max(0.5, (dep_dt - now).total_seconds() / 3600.0)
+            except Exception:
+                pass
+
         # Calculate metrics for each category
         for cat_key, cat in categories.items():
             tot = cat["total_seats"]
             bkd = cat["booked_seats"]
+            avail = cat["available_seats"]
             cat["occupancy_pct"] = round((bkd / tot * 100.0), 1) if tot > 0 else 0.0
             cat["booking_velocity"] = round(cat["recent_bookings"] / recent_window_hours, 2)
             if cat["collected_fares"]:
@@ -153,13 +172,34 @@ class SeatDemandService:
             else:
                 cat["average_collected_fare"] = 0.0
 
-            # Demand classification per category
-            if cat["occupancy_pct"] >= 70.0 or cat["booking_velocity"] >= 0.5:
+            # Demand classification per category (Low, Medium, High, or Insufficient Data)
+            if snap_count < 2 and bkd == 0 and not has_timestamped_bookings:
+                cat["demand_level"] = "Insufficient Data"
+                cat["selling_probability"] = 0.50
+                cat["expected_final_occupancy_pct"] = 50.0
+                cat["forecast_confidence"] = "Insufficient Data (Scenario Baseline)"
+            elif cat["occupancy_pct"] >= 70.0 or cat["booking_velocity"] >= 0.5:
                 cat["demand_level"] = "High"
+                # High demand selling probability
+                base_prob = 0.85
+                cat["selling_probability"] = min(0.98, max(0.60, round(base_prob + (cat["booking_velocity"] * 0.1), 2)))
+                est_additional = round(avail * cat["selling_probability"])
+                cat["expected_final_occupancy_pct"] = round(((bkd + est_additional) / tot * 100.0), 1) if tot > 0 else 100.0
+                cat["forecast_confidence"] = "Data-backed estimate" if has_timestamped_bookings else "Scenario estimate"
             elif cat["occupancy_pct"] < 35.0 and cat["booking_velocity"] <= 0.1:
                 cat["demand_level"] = "Low"
+                base_prob = 0.35
+                cat["selling_probability"] = min(0.55, max(0.15, round(base_prob + (cat["booking_velocity"] * 0.05), 2)))
+                est_additional = round(avail * cat["selling_probability"])
+                cat["expected_final_occupancy_pct"] = round(((bkd + est_additional) / tot * 100.0), 1) if tot > 0 else 0.0
+                cat["forecast_confidence"] = "Data-backed estimate" if has_timestamped_bookings else "Scenario estimate"
             else:
                 cat["demand_level"] = "Medium"
+                base_prob = 0.60
+                cat["selling_probability"] = min(0.75, max(0.40, round(base_prob + (cat["booking_velocity"] * 0.08), 2)))
+                est_additional = round(avail * cat["selling_probability"])
+                cat["expected_final_occupancy_pct"] = round(((bkd + est_additional) / tot * 100.0), 1) if tot > 0 else 50.0
+                cat["forecast_confidence"] = "Data-backed estimate" if has_timestamped_bookings else "Scenario estimate"
 
         # Position analysis
         for pos_key, pdata in positions.items():
@@ -174,7 +214,6 @@ class SeatDemandService:
             adata["occupancy_pct"] = round((abkd / atot * 100.0), 1) if atot > 0 else 0.0
 
         # Validate empirical patterns:
-        # Check if single private sleepers sell faster than sharing sleepers
         single_tot = arrangements["single"]["total"]
         sharing_tot = arrangements["sharing"]["total"]
         single_premium_warranted = False
@@ -190,8 +229,6 @@ class SeatDemandService:
                 single_premium_warranted = False
                 single_evidence_note = f"Single private berths do not show booking acceleration over sharing berths ({s_occ}% vs {sh_occ}%). Premium withheld."
 
-        # Check if lower berths sell faster than upper berths
-        # Aggregate lower vs upper across categories
         lower_tot = sum(c["total_seats"] for c in categories.values() if c.get("berth_type") == "lower")
         lower_bkd = sum(c["booked_seats"] for c in categories.values() if c.get("berth_type") == "lower")
         upper_tot = sum(c["total_seats"] for c in categories.values() if c.get("berth_type") == "upper")
@@ -213,7 +250,6 @@ class SeatDemandService:
                 lower_premium_warranted = False
                 lower_evidence_note = f"Upper berths have booked faster ({upper_occ}% vs {lower_occ}% lower). Lower berth premium withheld."
 
-        # Check if front seats sell faster than back seats
         front_occ = positions["front"]["occupancy_pct"]
         back_occ = positions["back"]["occupancy_pct"]
         front_premium_warranted = False
@@ -229,23 +265,22 @@ class SeatDemandService:
         if back_occ < 40.0:
             back_discount_warranted = True
 
-        # Fetch trip and competitor benchmarks
-        with get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM trips WHERE trip_id = ?;", (trip_id,))
-            trip_row = cursor.fetchone()
-        trip_data = dict(trip_row) if trip_row else {}
-
         comp_summary = CompetitorService.get_competitor_summary(trip_id)
         comp_median = comp_summary.get("median_fare")
 
-        confidence_score = "Data-backed estimate" if has_timestamped_bookings else "Heuristic estimate"
+        if snap_count < 2 and not has_timestamped_bookings:
+            confidence_score = "Insufficient Data (Scenario Baseline)"
+        elif has_timestamped_bookings:
+            confidence_score = "Data-backed estimate"
+        else:
+            confidence_score = "Heuristic estimate"
 
         return {
             "trip": trip_data,
             "categories": categories,
             "positions": positions,
             "arrangements": arrangements,
+            "hours_until_departure": round(hours_until_dep, 1),
             "patterns": {
                 "single_premium_warranted": single_premium_warranted,
                 "single_evidence_note": single_evidence_note,
@@ -259,3 +294,4 @@ class SeatDemandService:
             "competitor_summary": comp_summary,
             "confidence_score": confidence_score
         }
+

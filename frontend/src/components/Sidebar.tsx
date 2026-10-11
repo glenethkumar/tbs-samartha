@@ -8,7 +8,8 @@ import {
   FileText, 
   Settings as SettingsIcon,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  Award
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, selec
       label: selectedTripId ? `Pricing: ${selectedTripId.replace('TRIP-', '')}` : 'Recommendations', 
       icon: Sparkles 
     },
+    { id: 'performance', label: 'Performance Tracking', icon: Award },
     { id: 'baseline', label: 'Baseline Comparison', icon: BarChart3 },
     { id: 'audit', label: 'Audit Log', icon: History },
     { id: 'assumptions', label: 'Data & Assumptions', icon: FileText },
