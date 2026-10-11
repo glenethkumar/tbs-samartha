@@ -2,24 +2,23 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "backend": {
-      "root": "backend",
+      "root": "backend/",
       "framework": "fastapi",
       "entrypoint": "main:app"
     },
     "frontend": {
-      "root": "frontend",
-      "framework": "vite"
+      "root": "frontend/"
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/:path*",
       "destination": {
         "service": "backend"
       }
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": {
         "service": "frontend"
       }
