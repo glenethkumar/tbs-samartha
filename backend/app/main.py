@@ -38,10 +38,13 @@ from app.services.performance_service import PerformanceService
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize DB on startup and seed if empty
-    init_db()
-    trips = TripService.list_trips()
-    if not trips:
-        seed_data()
+    try:
+        init_db()
+        trips = TripService.list_trips()
+        if not trips:
+            seed_data()
+    except Exception as e:
+        print(f"Startup database warning: {e}")
     yield
 
 
@@ -60,6 +63,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def normalize_api_path_middleware(request, call_next):
+    path = request.scope.get("path", "")
+    if path and not path.startswith("/api") and not path.startswith("/docs") and not path.startswith("/redoc") and not path.startswith("/openapi.json"):
+        request.scope["path"] = f"/api{path}"
+    return await call_next(request)
 
 
 @app.get("/api/health")

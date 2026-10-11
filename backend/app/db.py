@@ -2,16 +2,43 @@
 
 import sqlite3
 import os
+import shutil
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
-DB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
-DB_PATH = os.path.join(DB_DIR, "fleetyield.db")
+IS_SERVERLESS = bool(
+    os.environ.get("VERCEL") 
+    or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") 
+    or os.environ.get("LAMBDA_TASK_ROOT")
+)
+
+ORIGINAL_DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+ORIGINAL_DB_PATH = os.path.join(ORIGINAL_DATA_DIR, "fleetyield.db")
+
+if IS_SERVERLESS:
+    DB_DIR = "/tmp"
+    DB_PATH = os.path.join(DB_DIR, "fleetyield.db")
+    if os.path.exists(ORIGINAL_DB_PATH) and not os.path.exists(DB_PATH):
+        try:
+            shutil.copy2(ORIGINAL_DB_PATH, DB_PATH)
+        except Exception as e:
+            print(f"Warning: could not copy pre-seeded database to /tmp: {e}")
+else:
+    try:
+        os.makedirs(ORIGINAL_DATA_DIR, exist_ok=True)
+        DB_DIR = ORIGINAL_DATA_DIR
+        DB_PATH = ORIGINAL_DB_PATH
+    except OSError:
+        DB_DIR = "/tmp"
+        DB_PATH = os.path.join(DB_DIR, "fleetyield.db")
 
 
 def get_connection() -> sqlite3.Connection:
     """Returns a SQLite connection with dictionary row access."""
-    os.makedirs(DB_DIR, exist_ok=True)
+    try:
+        os.makedirs(DB_DIR, exist_ok=True)
+    except OSError:
+        pass
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     # Enable foreign keys
@@ -21,7 +48,10 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db() -> None:
     """Initializes tables and seeds initial synthetic data if empty."""
-    os.makedirs(DB_DIR, exist_ok=True)
+    try:
+        os.makedirs(DB_DIR, exist_ok=True)
+    except OSError:
+        pass
     with get_connection() as conn:
         cursor = conn.cursor()
 
